@@ -1,0 +1,502 @@
+:root {
+  --navy: #09395f;
+  --navy-light: #07517a;
+  --teal: #16b8bd;
+  --blue: #126eac;
+  --canvas: #f2f8fb;
+  --border: #dcebf1;
+  --muted: #647d8e;
+  --ink: #173249;
+}
+* { box-sizing: border-box; }
+html { font-family: Inter, "Segoe UI", Arial, sans-serif; color: var(--ink); }
+body { margin: 0; background: var(--canvas); }
+a { text-decoration: none; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.login-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-card, .message-card {
+  width: min(100%, 498px); background: white; border: 1px solid var(--border);
+  border-radius: 24px; padding: 32px 38px; text-align: center;
+}
+.logo-mark { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; flex: none; background: var(--teal); border-radius: 12px; color: white; font-size: 14px; font-weight: 800; }
+.login-brand { display: block; color: var(--navy); font-size: 32px; margin-top: 12px; line-height: 1.25; }
+.muted { color: var(--muted); font-size: 14px; margin: 6px 0 8px; }
+.divider { height: 1px; background: var(--border); margin: 8px 0 16px; }
+h1, h2, p { margin-top: 0; }
+.login-card h1 { font-size: 22px; margin: 0 0 12px; }
+.login-card form { display: flex; flex-direction: column; text-align: left; gap: 7px; }
+.login-card label { font-size: 14px; }
+.login-card input:not([type=hidden]) { width: 100%; height: 36px; border: 1px solid #d6dce1; border-radius: 7px; padding: 0 12px; background: #fff; color: var(--ink); margin-bottom: 11px; outline: none; }
+.login-card input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #16b8bd22; }
+.primary { align-self: center; border: 0; border-radius: 8px; background: var(--blue); color: white; padding: 11px 26px; margin-top: 4px; min-width: 128px; }
+.primary:hover { background: var(--navy-light); }
+.login-note { color: var(--muted); font-size: 11px; margin: 12px 0 8px; }
+.login-info { background: #f0f9fb; color: var(--navy); border-radius: 12px; text-align: left; padding: 14px; display: grid; gap: 7px; font-size: 12px; line-height: 1.5; }
+.login-info strong { font-size: 10px; color: var(--blue); }
+.alert { color: #a31d34; background: #fff2f4; border-radius: 8px; font-size: 13px; padding: 9px 12px; }
+.message-card h1 { color: var(--navy); font-size: 22px; margin: 20px 0; }
+.text-link { color: var(--blue); font-weight: 600; }
+.app-shell { min-height: 100vh; display: flex; }
+.sidebar { width: 242px; flex: none; background: var(--navy); color: white; padding: 24px 16px; display: flex; flex-direction: column; gap: 6px; }
+.sidebar-brand { height: 74px; display: flex; align-items: center; gap: 12px; }
+.sidebar-brand strong { display: block; font-size: 19px; }
+.sidebar-brand small { display: block; color: #a8dce9; font-size: 9px; font-weight: 700; letter-spacing: .04em; }
+.side-divider { height: 1px; background: #276584; margin-bottom: 3px; }
+.nav-caption { font-size: 10px; color: #9fc5d5; font-weight: 700; margin-bottom: 2px; }
+.sidebar nav { display: grid; gap: 6px; }
+.nav-link { min-height: 42px; padding: 11px 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; color: #c9e0eb; font-size: 13px; }
+.nav-link:hover { background: #14577c; color: white; }
+.nav-link.active { background: #126894; color: white; font-weight: 700; }
+.dot { width: 8px; height: 8px; border-radius: 4px; background: #5c9ab5; flex: none; }
+.active .dot { background: var(--teal); }
+.account { margin-top: auto; background: #14577c; border-radius: 12px; padding: 12px; display: grid; gap: 5px; color: #cae9f0; font-size: 12px; }
+.account strong { color: white; }
+.account span:nth-of-type(2) { font-size: 10px; opacity: .8; }
+.account form { margin: 0; }
+.account-logout { color: #5ae0dc; background: none; border: 0; padding: 0; font-size: 11px; font-weight: 700; }
+.workspace { min-width: 0; flex: 1; }
+.topbar { min-height: 76px; background: white; display: flex; align-items: center; gap: 14px; padding: 16px 38px; font-size: 13px; }
+.topbar strong { color: var(--navy); }
+.breadcrumb { color: var(--muted); flex: 1; }
+.role-chip, .code-chip, .metric-chip { background: #e2f8f8; color: var(--blue); font-size: 12px; font-weight: 700; border-radius: 999px; padding: 8px 12px; }
+.top-logout { border: 0; background: transparent; color: var(--blue); font-weight: 700; font-size: 12px; }
+.content { max-width: 1150px; margin: 0 auto; padding: 28px 48px 70px; }
+.page-heading { min-height: 84px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
+.page-heading h1 { color: var(--navy); font-size: 30px; margin: 0 0 7px; }
+.page-heading p { color: var(--muted); font-size: 14px; margin: 0; }
+.code-chip { background: #e6f4fb; white-space: nowrap; }
+.welcome { background: var(--navy-light); border-radius: 16px; min-height: 96px; padding: 24px; display: flex; align-items: center; gap: 12px; color: white; margin-bottom: 17px; }
+.spark { width: 44px; height: 44px; background: var(--teal); border-radius: 14px; display: grid; place-items: center; font-size: 22px; }
+.welcome h2 { font-size: 18px; margin: 0 0 4px; }
+.welcome p { color: #bce5f0; font-size: 12px; margin: 0; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 21px 18px; }
+.metric-card { min-height: 160px; background: white; border: 1px solid var(--border); border-radius: 16px; padding: 18px 22px; display: flex; align-items: flex-start; flex-direction: column; gap: 10px; }
+.metric-card:hover { border-color: var(--teal); box-shadow: 0 8px 24px #09395f0d; }
+.metric-chip { padding: 7px 12px; }
+.metric-card strong { color: var(--navy); font-size: 30px; }
+.card-link { color: var(--blue); font-size: 12px; font-weight: 700; }
+.table-card { border: 1px solid var(--border); border-radius: 16px; background: white; overflow: hidden; }
+.table-top { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
+.table-top h2 { font-size: 18px; color: var(--navy); margin: 0; }
+.table-top span, .read-only { color: var(--muted); font-size: 12px; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 600px; text-align: left; font-size: 13px; }
+th { color: var(--muted); font-size: 11px; letter-spacing: .03em; background: #f6fbfd; text-transform: uppercase; }
+th, td { border-top: 1px solid var(--border); padding: 16px 20px; vertical-align: top; }
+td { overflow-wrap: anywhere; }
+tr:hover td { background: #f9fcfe; }
+.empty { color: var(--muted); text-align: center; padding: 32px; }
+.read-only { margin-top: 14px; }
+@media (max-width: 850px) {
+  .app-shell { display: block; }
+  .sidebar { width: 100%; padding: 16px; }
+  .sidebar-brand { height: auto; }
+  .sidebar nav { display: flex; flex-wrap: wrap; }
+  .nav-link { min-height: 36px; }
+  .account { margin-top: 10px; }
+  .topbar { padding: 14px 20px; }
+  .content { padding: 24px 20px 56px; }
+}
+@media (max-width: 560px) {
+  .metric-grid { grid-template-columns: 1fr; }
+  .page-heading { align-items: flex-start; flex-direction: column; }
+  .page-heading h1 { font-size: 26px; }
+  .breadcrumb { display: none; }
+  .role-chip { margin-left: auto; }
+  .login-card { padding: 30px 22px; }
+}
+
+/* CRUD de usuarios */
+.alert { margin: 0 0 16px; padding: 13px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+.alert.success { background: #eaf9f4; border: 1px solid #bfeada; color: #17664f; }
+.alert.danger { background: #fff0f1; border: 1px solid #f4c8cd; color: #9f2631; }
+.crud-card { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 20px; }
+.crud-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.crud-head h2 { color: var(--navy); margin: 0 0 5px; font-size: 18px; }
+.crud-head p { color: var(--muted); margin: 0; font-size: 12px; }
+.crud-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 18px; }
+.crud-form label { display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 700; }
+.crud-form input, .crud-form select { width: 100%; border: 1px solid #cddfe7; border-radius: 10px; background: white; color: var(--ink); padding: 11px 12px; outline: none; }
+.crud-form input:focus, .crud-form select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #16b8bd18; }
+.crud-form small { color: var(--muted); font-weight: 400; line-height: 1.35; }
+.form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; padding-top: 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; padding: 10px 14px; border: 1px solid transparent; font-size: 12px; font-weight: 700; }
+.btn.primary { background: var(--blue); color: white; }
+.btn.primary:hover { background: var(--navy-light); }
+.btn.secondary { background: white; color: var(--blue); border-color: #cfe0e8; }
+.btn.tiny { padding: 7px 9px; font-size: 11px; }
+.danger-btn { background: #fff2f3; color: #aa2935; border-color: #efcbd0; }
+.crud-list { margin-top: 0; }
+.crud-list .table-top > div { display: grid; gap: 4px; }
+.row-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.row-actions form { margin: 0; }
+.status-pill { display: inline-flex; padding: 5px 8px; border-radius: 999px; background: #e7f7f8; color: var(--blue); font-size: 11px; font-weight: 700; }
+.self-label { color: var(--muted); font-size: 11px; }
+@media (max-width: 760px) { .crud-form { grid-template-columns: 1fr; } .crud-head { flex-direction: column; } }
+
+/* Identidad visual OdontoSync v5 — activos originales y tamaños semánticos */
+/*
+  Regla de frontend:
+  - logos horizontales para login/sidebar;
+  - iconos raster ya optimizados por tamaño para topbar, tarjetas y favicon;
+  - nunca se usan PNG 4K como iconos de interfaz.
+*/
+.brand-login {
+  display: block;
+  width: 260px;
+  height: 65px;
+  max-width: 82%;
+  margin: 0 auto 10px;
+  object-fit: contain;
+}
+.login-subtitle { margin-top: 0; }
+
+.sidebar-brand {
+  height: 62px;
+  min-height: 62px;
+  padding: 6px 4px 10px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.brand-sidebar {
+  display: block;
+  width: 184px;
+  height: 46px;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  min-width: 142px;
+  color: var(--navy);
+}
+.topbar-brand img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  object-fit: contain;
+}
+
+.welcome-icon {
+  display: block;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  object-fit: contain;
+}
+
+@media (max-width: 850px) {
+  .sidebar-brand { height: 54px; min-height: 54px; padding-bottom: 6px; }
+  .brand-sidebar { width: 168px; height: 42px; }
+}
+@media (max-width: 560px) {
+  .brand-login { width: 230px; height: 58px; max-width: 88%; }
+  .topbar-brand strong { display: none; }
+  .topbar-brand { min-width: 32px; }
+}
+
+/* Identidad visual OdontoSync v6 — tamaños finales de interfaz */
+.brand-login {
+  width: 240px;
+  height: 60px;
+  max-width: 84%;
+  margin: 0 auto 8px;
+}
+.brand-sidebar {
+  width: 170px;
+  height: 42px;
+  max-width: 100%;
+}
+.topbar-brand img {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+}
+.welcome-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+}
+
+/* Entrega 3 · CRUD y ficha de pacientes */
+.patient-toolbar {
+  display: flex; align-items: end; gap: 18px; justify-content: space-between;
+  background: #fff; border: 1px solid var(--border); border-radius: 16px;
+  padding: 18px 20px; margin-bottom: 20px;
+}
+.patient-search { flex: 1; max-width: 760px; }
+.patient-search > label { display: block; color: var(--navy); font-weight: 700; font-size: 12px; margin-bottom: 7px; }
+.search-row { display: flex; gap: 9px; }
+.search-row input { flex: 1; min-width: 0; border: 1px solid #cddfe7; border-radius: 10px; padding: 10px 12px; outline: none; }
+.search-row input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #16b8bd18; }
+.patient-toolbar-note { display: grid; min-width: 95px; text-align: right; color: var(--muted); font-size: 11px; }
+.patient-toolbar-note strong { color: var(--navy); font-size: 25px; }
+.patient-form .span-2 { grid-column: 1 / -1; }
+.table-secondary { color: var(--muted); font-size: 11px; }
+.success-btn { background: #eaf9f4; color: #17664f; border-color: #bfeada; }
+.status-inactive { background: #f0f2f4; color: #65717a; }
+.patient-file {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px;
+  padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 26px #09395f08;
+}
+.patient-file-head { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--border); padding-bottom: 18px; }
+.patient-file-head > div:nth-child(2) { flex: 1; }
+.patient-file-head h2 { margin: 3px 0 4px; color: var(--navy); font-size: 23px; }
+.patient-file-head p { margin: 0; color: var(--muted); font-size: 12px; }
+.patient-avatar {
+  width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center;
+  background: #e1f7f7; color: var(--blue); font-weight: 800; font-size: 16px;
+}
+.eyebrow { color: var(--teal-dark, #198f9a); font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+.patient-data-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 18px 0; }
+.patient-data-grid > div { background: #f7fbfc; border-radius: 11px; padding: 11px 13px; display: grid; gap: 4px; }
+.patient-data-grid span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.patient-data-grid strong { color: var(--navy); font-size: 12px; overflow-wrap: anywhere; }
+.patient-file-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.patient-section { border: 1px solid var(--border); border-radius: 14px; padding: 16px; min-width: 0; }
+.patient-section-wide { grid-column: 1 / -1; }
+.section-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-title > div { display: grid; gap: 2px; }
+.section-title span { color: var(--muted); font-size: 10px; font-weight: 700; }
+.section-title > div > span { color: var(--blue); font-size: 9px; letter-spacing: .08em; }
+.section-title h3 { color: var(--navy); font-size: 15px; margin: 0; }
+.mini-table-scroll { overflow-x: auto; }
+.mini-table { min-width: 620px; font-size: 11px; }
+.mini-table th, .mini-table td { padding: 10px 9px; }
+.summary-list { margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.summary-list div { display: grid; gap: 3px; }
+.summary-list div.full { grid-column: 1 / -1; }
+.summary-list dt { color: var(--muted); font-size: 10px; }
+.summary-list dd { margin: 0; color: var(--ink); font-size: 12px; line-height: 1.45; }
+.stack-list { display: grid; gap: 9px; }
+.stack-item { border-top: 1px solid #edf2f4; padding-top: 9px; display: grid; gap: 3px; }
+.stack-item:first-child { border-top: 0; padding-top: 0; }
+.stack-item strong { color: var(--navy); font-size: 11px; }
+.stack-item span { color: var(--ink); font-size: 11px; }
+.stack-item small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.payment-item strong { font-size: 15px; color: var(--blue); }
+.empty-note { color: var(--muted); font-size: 11px; margin: 8px 0 0; }
+.patient-list { margin-top: 20px; }
+@media (max-width: 900px) {
+  .patient-data-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .patient-file-grid { grid-template-columns: 1fr; }
+  .patient-section-wide { grid-column: auto; }
+}
+@media (max-width: 650px) {
+  .patient-toolbar { align-items: stretch; flex-direction: column; }
+  .patient-toolbar-note { text-align: left; display: flex; align-items: baseline; gap: 6px; }
+  .search-row { flex-wrap: wrap; }
+  .search-row input { flex-basis: 100%; }
+  .patient-data-grid { grid-template-columns: 1fr; }
+  .patient-file-head { align-items: flex-start; flex-wrap: wrap; }
+}
+
+/* Entrega 3 · Odontólogos + Horarios */
+.dentist-toolbar { margin-bottom: 20px; }
+.dentist-form .specialty-field {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 14px 16px 16px;
+  margin: 0;
+}
+.specialty-field legend { color: var(--navy); font-size: 12px; font-weight: 800; padding: 0 6px; }
+.specialty-field > p { color: var(--muted); font-size: 11px; margin: 0 0 11px; }
+.specialty-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.specialty-option {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+  min-height: 42px;
+  border: 1px solid #dcebf1;
+  background: #f8fcfd;
+  border-radius: 10px;
+  padding: 9px 10px;
+  color: var(--ink) !important;
+  font-weight: 600 !important;
+}
+.specialty-option input { width: 16px !important; height: 16px; margin: 0; accent-color: var(--teal); }
+.specialty-option span { font-size: 11px; line-height: 1.3; }
+.specialty-text { display: inline-block; max-width: 250px; color: var(--ink); line-height: 1.45; }
+
+.schedule-form { align-items: end; }
+.schedule-tip {
+  border: 1px solid #cde7ee;
+  background: #f2fbfc;
+  border-radius: 11px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 3px;
+  align-self: stretch;
+}
+.schedule-tip strong { color: var(--blue); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.schedule-tip span { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.schedule-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.schedule-summary > div {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 15px 18px;
+  display: grid;
+  gap: 5px;
+}
+.schedule-summary span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.schedule-summary strong { color: var(--navy); font-size: 24px; }
+.schedule-summary .summary-word { font-size: 16px; padding-top: 4px; }
+.day-chip {
+  display: inline-flex;
+  min-width: 72px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #eef8fb;
+  color: var(--navy-light);
+  font-size: 11px;
+  font-weight: 700;
+}
+@media (max-width: 800px) {
+  .specialty-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .schedule-summary { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .specialty-grid { grid-template-columns: 1fr; }
+}
+
+/* Entrega 3 · Agenda + Citas */
+.crud-form textarea {
+  width: 100%; border: 1px solid #cddfe7; border-radius: 10px; background: white;
+  color: var(--ink); padding: 11px 12px; outline: none; resize: vertical; font: inherit;
+}
+.crud-form textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #16b8bd18; }
+.patient-file-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.crud-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.agenda-summary { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
+.agenda-summary > div {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px;
+  display: grid; gap: 5px;
+}
+.agenda-summary span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+.agenda-summary strong { color: var(--navy); font-size: 23px; }
+.agenda-filter-card {
+  background: white; border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.agenda-filters { display: grid; grid-template-columns: 145px 145px 155px minmax(220px,1fr) auto; gap: 12px; align-items: end; }
+.agenda-filters label { display: grid; gap: 6px; color: var(--navy); font-size: 11px; font-weight: 700; }
+.agenda-filters input, .agenda-filters select {
+  width: 100%; border: 1px solid #cddfe7; border-radius: 9px; background: white; color: var(--ink);
+  padding: 9px 10px; outline: none;
+}
+.agenda-filters input:focus, .agenda-filters select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #16b8bd18; }
+.agenda-filter-actions { display: flex; gap: 7px; align-items: center; }
+.agenda-form .span-2 { grid-column: 1 / -1; }
+.agenda-validation-tip {
+  border: 1px solid #cde7ee; background: #f2fbfc; border-radius: 12px; padding: 11px 13px;
+  display: grid; gap: 4px;
+}
+.agenda-validation-tip strong { color: var(--blue); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.agenda-validation-tip span { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.agenda-table { min-width: 900px; }
+.appointment-status {
+  display: inline-flex; padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 800;
+  white-space: nowrap;
+}
+.status-pendiente { background: #fff6df; color: #8d6514; }
+.status-confirmada { background: #e8f4ff; color: #1769a0; }
+.status-atendida { background: #eaf9f4; color: #17664f; }
+.status-cancelada { background: #fff0f1; color: #9f2631; }
+.status-no_asistio { background: #f0f2f4; color: #65717a; }
+.agenda-actions { min-width: 190px; }
+.closed-label { color: var(--muted); font-size: 10px; font-weight: 700; }
+@media (max-width: 1020px) {
+  .agenda-summary { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .agenda-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .agenda-query { grid-column: 1 / -1; }
+  .agenda-filter-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 620px) {
+  .agenda-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .agenda-filters { grid-template-columns: 1fr; }
+  .agenda-query, .agenda-filter-actions { grid-column: auto; }
+  .agenda-filter-actions { flex-wrap: wrap; }
+  .patient-file-actions { width: 100%; }
+}
+
+/* Entrega 3 · Atención clínica + Historia clínica */
+.clinical-context-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px;
+  padding: 20px; margin-bottom: 18px; box-shadow: 0 8px 26px #09395f08;
+}
+.clinical-patient-head { display: flex; align-items: center; gap: 13px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+.clinical-patient-head > div:nth-child(2) { flex: 1; }
+.clinical-patient-head h2 { margin: 2px 0 3px; color: var(--navy); font-size: 22px; }
+.clinical-patient-head p { margin: 0; color: var(--muted); font-size: 11px; }
+.clinical-head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.clinical-context-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding-top: 16px; }
+.clinical-context-grid > div { border-radius: 11px; background: #f7fbfc; padding: 11px 12px; display: grid; gap: 4px; }
+.clinical-context-grid > div.span-2 { grid-column: span 2; }
+.clinical-context-grid span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+.clinical-context-grid strong { color: var(--navy); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.clinical-form .span-2 { grid-column: 1 / -1; }
+.clinical-saved-chip { display: inline-flex; align-items: center; padding: 6px 9px; border-radius: 999px; background: #eaf9f4; color: #17664f; font-size: 10px; font-weight: 800; }
+.clinical-integrity-tip { border: 1px solid #cde7ee; background: #f2fbfc; border-radius: 12px; padding: 11px 13px; display: grid; gap: 4px; }
+.clinical-integrity-tip strong { color: var(--blue); font-size: 9px; letter-spacing: .06em; }
+.clinical-integrity-tip span { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.history-toolbar { margin-bottom: 18px; }
+.history-list-card { margin-bottom: 18px; }
+.history-status { display: inline-flex; border-radius: 999px; padding: 5px 8px; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.history-status.active { background: #eaf9f4; color: #17664f; }
+.history-status.pending { background: #fff6df; color: #8d6514; }
+.clinical-history-file { margin-top: 18px; }
+.clinical-patient-summary { padding-bottom: 14px; }
+.clinical-history-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.history-notes-section { min-height: 100%; }
+.clinical-inline-form { display: grid; gap: 9px; }
+.clinical-inline-form textarea,
+.mini-clinical-form textarea,
+.mini-clinical-form input {
+  width: 100%; border: 1px solid #cddfe7; border-radius: 9px; background: white;
+  color: var(--ink); padding: 9px 10px; outline: none; font: inherit;
+}
+.clinical-inline-form textarea:focus,
+.mini-clinical-form textarea:focus,
+.mini-clinical-form input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px #16b8bd18; }
+.mini-clinical-form { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #dce7eb; display: grid; gap: 8px; }
+.clinical-stack { max-height: 240px; overflow-y: auto; padding-right: 3px; }
+.allergy-item { border-left: 3px solid #ef9aa1; padding-left: 9px; }
+.clinical-consultations { margin-top: 0; }
+.consultation-timeline { display: grid; gap: 11px; }
+.consultation-entry { border: 1px solid #e1ebef; border-radius: 13px; background: #fbfdfe; padding: 13px; display: grid; gap: 10px; }
+.consultation-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid #edf2f4; padding-bottom: 8px; }
+.consultation-meta strong { color: var(--navy); font-size: 11px; }
+.consultation-meta span { color: var(--muted); font-size: 10px; text-align: right; }
+.consultation-body { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px 14px; }
+.consultation-body > div { min-width: 0; }
+.consultation-body span { color: var(--blue); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.consultation-body p { color: var(--ink); font-size: 11px; line-height: 1.45; margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .clinical-context-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .clinical-history-grid { grid-template-columns: 1fr; }
+  .clinical-consultations { grid-column: auto; }
+}
+@media (max-width: 620px) {
+  .clinical-patient-head { align-items: flex-start; flex-wrap: wrap; }
+  .clinical-head-actions { width: 100%; justify-content: flex-start; }
+  .clinical-context-grid { grid-template-columns: 1fr; }
+  .clinical-context-grid > div.span-2 { grid-column: auto; }
+  .consultation-meta { align-items: flex-start; flex-direction: column; }
+  .consultation-meta span { text-align: left; }
+  .consultation-body { grid-template-columns: 1fr; }
+}
+
+/* Semana 10 · acciones de reporte */
+.table-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

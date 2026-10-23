@@ -1,0 +1,64 @@
+<%@ page import="pe.odontosync.User,pe.odontosync.Html" %>
+<%
+User user = (User) request.getAttribute("user");
+String active = (String) request.getAttribute("active");
+String base = request.getContextPath();
+String csrf = (String) session.getAttribute("csrf");
+%>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= Html.escape(active.equals("Inicio") ? user.role().heading() : Html.moduleLabel(active)) %> | OdontoSync</title>
+  <link rel="icon" type="image/svg+xml" href="<%= Html.escape(base) %>/brand/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="<%= Html.escape(base) %>/brand/icon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="<%= Html.escape(base) %>/brand/icon-16.png">
+  <link rel="stylesheet" href="<%= Html.escape(base) %>/css/estilos.css?v=20261012-semana10">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="sidebar-brand" href="<%= Html.escape(base) %>/panel" aria-label="Ir al inicio de OdontoSync">
+      <img class="brand-sidebar" src="<%= Html.escape(base) %>/brand/logo-sidebar.svg" alt="OdontoSync" width="184" height="46">
+    </a>
+    <div class="side-divider"></div>
+    <span class="nav-caption">ESPACIO DE TRABAJO</span>
+    <nav aria-label="Menú principal">
+      <a class="nav-link <%= active.equals("Inicio") ? "active" : "" %>" href="<%= Html.escape(base) %>/panel"><span class="dot"></span>Inicio</a>
+      <% for (String module : user.role().modules()) {
+           String moduleHref = "usuarios".equals(module) ? base + "/usuarios"
+               : "pacientes".equals(module) ? base + "/pacientes"
+               : "odontologos".equals(module) ? base + "/odontologos"
+               : "horarios".equals(module) ? base + "/horarios"
+               : "agenda".equals(module) ? base + "/agenda"
+               : "historias".equals(module) ? base + "/historias"
+               : base + "/modulo/" + module;
+      %>
+        <a class="nav-link <%= active.equals(module) ? "active" : "" %>" href="<%= Html.escape(moduleHref) %>"><span class="dot"></span><%= Html.escape(Html.moduleLabel(module)) %></a>
+      <% } %>
+    </nav>
+    <div class="account">
+      <strong><%= Html.escape(user.role().label()) %></strong>
+      <span><%= Html.escape(user.name()) %></span>
+      <span><%= Html.escape(user.clinicName()) %></span>
+      <form action="<%= Html.escape(base) %>/logout" method="post">
+        <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+        <button class="account-logout" type="submit">Cambiar cuenta →</button>
+      </form>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar">
+      <a class="topbar-brand" href="<%= Html.escape(base) %>/panel" aria-label="OdontoSync inicio">
+        <img src="<%= Html.escape(base) %>/brand/icon-32.png" width="32" height="32" alt="" aria-hidden="true">
+        <strong>OdontoSync</strong>
+      </a>
+      <span class="breadcrumb">/ &nbsp; <%= Html.escape(active.equals("Inicio") ? "Inicio / " + user.role().heading() : Html.moduleLabel(active)) %></span>
+      <span class="role-chip"><%= Html.escape(user.role().label()) %></span>
+      <form action="<%= Html.escape(base) %>/logout" method="post">
+        <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+        <button class="top-logout" type="submit">Salir ↗</button>
+      </form>
+    </header>
+    <main class="content">

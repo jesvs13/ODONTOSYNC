@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property name="LOG_DIR" value="${catalina.base:-.}/logs" />
+  <property name="APP_LEVEL" value="${ODONTOSYNC_LOG_LEVEL:-INFO}" />
+
+  <appender name="APP" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/odontosync.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_DIR}/odontosync.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>10MB</maxFileSize>
+      <maxHistory>14</maxHistory>
+      <totalSizeCap>200MB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%date %-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_DIR}/odontosync-audit.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_DIR}/odontosync-audit.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>10MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>250MB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%date %-5level %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="AUDIT" level="INFO" additivity="false">
+    <appender-ref ref="AUDIT" />
+  </logger>
+
+  <logger name="pe.odontosync" level="${APP_LEVEL}" />
+  <root level="WARN">
+    <appender-ref ref="APP" />
+  </root>
+</configuration>

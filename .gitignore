@@ -1,0 +1,40 @@
+# Maven
+target/
+*.war
+
+# Logs
+*.log
+logs/
+
+# Variables y secretos locales
+.env
+.env.*
+*.properties.local
+
+# VS Code
+.vscode/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+hs_err_pid*
+
+# Archivos temporales
+*.tmp
+*.bak
+*.swp
+
+# OWASP Dependency Check / reportes temporales
+dependency-check-data/
