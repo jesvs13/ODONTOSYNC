@@ -1,94 +1,281 @@
 # OdontoSync
 
-Aplicación web académica 100% Java para gestión de una clínica odontológica.
+OdontoSync es un sistema web para la gestión de una clínica odontológica desarrollado como parte del curso de Integrador I.
 
-## Stack actual
+El proyecto busca facilitar la administración de pacientes, odontólogos, horarios, citas y atenciones clínicas, centralizando la información en una base de datos MySQL.
+
+## Tecnologías utilizadas
+
+Para el desarrollo del proyecto utilizamos:
 
 - Java 17
-- Jakarta Servlets + JSP
-- MVC + Service + DAO
+- JSP y Servlets
 - JDBC
-- MySQL 8
+- MySQL
 - Maven
 - Apache Tomcat 10.1
-- JUnit 5
+- HTML y CSS
+- JavaScript para algunas funciones de interfaz
+- Visual Studio Code
 
-## Semana 10 integrada
+El proyecto se ha desarrollado principalmente en Java, manteniendo la estructura solicitada para el curso.
 
-- Google Guava aplicado a colecciones inmutables, Multimap y control de intentos de login con CacheBuilder.
-- Apache POI para exportar reportes Excel.
-- Apache Commons Lang e IO para validación/normalización y manejo de streams.
-- SLF4J + Logback para errores, monitoreo y auditoría.
-- OWASP Dependency-Check y configuración de SonarQube para revisión de seguridad/calidad.
-- Controles de seguridad: validación de entradas, PreparedStatement, CSP, sesiones/roles, CSRF, mínimo privilegio, auditoría y HTTPS activable por entorno.
+## Arquitectura del proyecto
 
-## Funcionalidad implementada
+Organizamos el sistema utilizando una arquitectura basada en MVC y separando las responsabilidades principales.
 
-- Login real contra MySQL.
-- Sesión y control de acceso por roles: Administrador, Recepción y Odontólogo.
-- Dashboard por rol.
-- CRUD funcional de Usuarios.
-- CRUD funcional de Pacientes con baja lógica y ficha integral.
-- CRUD funcional de Odontólogos con cuenta vinculada, especialidades y baja lógica.
-- CRUD funcional de Horarios con prevención de cruces y vistas según rol.
-- Agenda/Citas funcional: registro, confirmación, reprogramación, cancelación, estados y validación de disponibilidad.
-- Atención clínica funcional: diagnóstico, tratamiento, observaciones y recomendaciones vinculadas a la cita.
-- Historia clínica funcional: apertura automática, evolución, antecedentes médicos, alergias y observaciones generales.
-- Reporte de citas por estado con exportación Excel generada por Apache POI.
-- Registro de auditoría con Logback para eventos importantes.
-- Consultas DAO de Recetas, Placas, Pagos, Inventario, Reportes y Clínica.
-- Identidad visual OdontoSync integrada.
+La estructura general es:
 
-## Compilar y probar
+```text
+Vista (JSP)
+     ↓
+Controller (Servlet)
+     ↓
+Service
+     ↓
+DAO
+     ↓
+JDBC
+     ↓
+MySQL
+```
 
-```powershell
+### Vista
+
+Las vistas están desarrolladas con JSP, HTML y CSS.
+
+Son las pantallas que utiliza el usuario para interactuar con el sistema, por ejemplo:
+
+- Login
+- Panel principal
+- Pacientes
+- Odontólogos
+- Horarios
+- Agenda
+- Atención clínica
+- Historia clínica
+
+### Controller
+
+Los controladores están desarrollados utilizando Servlets.
+
+Su función es recibir las solicitudes realizadas desde las vistas y comunicarse con la lógica del sistema.
+
+Algunos ejemplos son:
+
+- `LoginServlet`
+- `PacienteServlet`
+- `OdontologoServlet`
+- `HorarioServlet`
+- `AgendaServlet`
+- `AtencionServlet`
+
+### Service
+
+La capa Service contiene las principales validaciones y reglas de negocio.
+
+Por ejemplo, en el registro de una cita se verifica:
+
+- que el paciente exista;
+- que el odontólogo esté disponible;
+- que la especialidad corresponda al odontólogo;
+- que la cita esté dentro de su horario;
+- que no exista cruce de horarios;
+- que la agenda no se encuentre bloqueada.
+
+### DAO
+
+La capa DAO se encarga de realizar las consultas a MySQL utilizando JDBC y `PreparedStatement`.
+
+De esta manera evitamos colocar consultas SQL directamente dentro de los Servlets.
+
+## Módulos desarrollados
+
+Actualmente nuestro proyecto cuenta con los siguientes módulos:
+
+- Inicio de sesión
+- Control de usuarios por roles
+- Panel principal según el tipo de usuario
+- Gestión de usuarios
+- Gestión de pacientes
+- Gestión de odontólogos
+- Especialidades
+- Gestión de horarios
+- Agenda y citas
+- Bloqueo de agenda
+- Atención clínica
+- Historia clínica
+- Reportes en Excel
+
+También continuamos trabajando en los módulos restantes del proyecto.
+
+## Roles del sistema
+
+El sistema maneja principalmente tres tipos de usuario:
+
+### Administrador
+
+Tiene acceso a las funciones administrativas del sistema, como usuarios, odontólogos, horarios y otros módulos de gestión.
+
+### Recepción
+
+Está orientado principalmente a la gestión de pacientes, citas y agenda.
+
+### Odontólogo
+
+Tiene acceso a la información necesaria para realizar la atención clínica de sus pacientes.
+
+## Base de datos
+
+Utilizamos MySQL como sistema de gestión de base de datos.
+
+La aplicación se conecta mediante JDBC utilizando un usuario técnico llamado:
+
+```text
+odontosync_app
+```
+
+Este usuario tiene solamente los permisos necesarios para que el sistema pueda trabajar con las tablas correspondientes.
+
+No utilizamos el usuario `root` para la conexión normal de la aplicación.
+
+## Seguridad
+
+Durante el desarrollo también hemos aplicado diferentes medidas de seguridad.
+
+Entre ellas se encuentran:
+
+- contraseñas protegidas mediante PBKDF2 y salt;
+- consultas SQL mediante `PreparedStatement`;
+- control de acceso según roles;
+- manejo de sesiones;
+- cierre de sesión por inactividad;
+- protección CSRF;
+- protección frente a XSS;
+- usuario de base de datos con permisos limitados;
+- registro de errores y eventos importantes.
+
+## Librerías utilizadas
+
+Durante el desarrollo hemos incorporado algunas librerías de Java de acuerdo con las necesidades del proyecto.
+
+### Google Guava
+
+La utilizamos principalmente para algunas utilidades y para controlar temporalmente los intentos fallidos de inicio de sesión mediante caché.
+
+### Apache Commons Lang
+
+La utilizamos para trabajar y validar cadenas de texto recibidas desde los formularios.
+
+Por ejemplo:
+
+```java
+StringUtils.trimToEmpty(...)
+StringUtils.isBlank(...)
+```
+
+### Apache Commons IO
+
+La utilizamos para facilitar el manejo de archivos y flujos de datos.
+
+### Apache POI
+
+La utilizamos para generar archivos Excel desde Java.
+
+Actualmente permite exportar información del sistema a archivos `.xlsx`.
+
+### SLF4J y Logback
+
+Los utilizamos para registrar errores y eventos importantes durante la ejecución del sistema.
+
+Esto nos ayuda tanto para revisar problemas como para tener un registro de determinadas acciones realizadas dentro de la aplicación.
+
+## Calidad del código
+
+Como parte de la revisión del proyecto también utilizamos SonarQube para identificar posibles mejoras en el código.
+
+Nos permite detectar aspectos como:
+
+- código repetido;
+- posibles errores;
+- manejo de excepciones;
+- problemas de mantenibilidad;
+- recomendaciones de calidad.
+
+Las observaciones encontradas se revisan antes de realizar cambios para evitar afectar funcionalidades que ya se encuentran operativas.
+
+## Gestión de dependencias
+
+Las dependencias del proyecto están definidas en:
+
+```text
+pom.xml
+```
+
+Maven se encarga de descargar las librerías necesarias, ejecutar las pruebas y generar el archivo WAR de la aplicación.
+
+Los principales comandos utilizados son:
+
+```bash
 mvn clean test
 mvn clean package
 ```
 
-El WAR se genera en:
+Al compilar el proyecto se genera:
 
-`target/odontosync.war`
-
-## Revisión de dependencias
-
-Con Internet disponible:
-
-```powershell
-mvn -Psecurity-audit org.owasp:dependency-check-maven:check
+```text
+target/odontosync.war
 ```
 
-Reporte esperado:
+Este archivo se despliega en Apache Tomcat.
 
-`target/dependency-check-report.html`
+## Ejecución del proyecto
 
-## Logs
+Para ejecutar OdontoSync es necesario contar con:
 
-Logback genera, bajo la carpeta `logs` de Tomcat:
+- Java 17
+- Maven
+- MySQL Server
+- Apache Tomcat 10.1
 
-- `odontosync.log`
-- `odontosync-audit.log`
+También se deben configurar las variables necesarias para la conexión con la base de datos.
 
-No se registran contraseñas, hashes, tokens CSRF ni texto clínico sensible.
+La aplicación se ejecuta localmente mediante:
 
-## MySQL
+```text
+http://localhost:8080/odontosync
+```
 
-Base de datos demo:
+## Trabajo colaborativo
 
-`sql/odontosync_demo.sql`
+El proyecto se encuentra almacenado en GitHub para facilitar el trabajo del equipo y mantener un historial de los cambios realizados.
 
-Permisos del usuario técnico:
+La rama:
 
-- `sql/permisos_crud_usuarios.sql`
-- `sql/permisos_crud_pacientes.sql`
-- `sql/permisos_crud_odontologos_horarios.sql`
-- `sql/permisos_agenda_citas.sql`
-- `sql/permisos_atencion_historia.sql`
+```text
+main
+```
 
-## Carpeta local
+se utiliza como versión principal y estable del proyecto.
 
-Para el trabajo del equipo se recomienda mantener siempre el proyecto en:
+Para nuevos cambios utilizaremos ramas independientes, por ejemplo:
 
-`C:\Users\USER\Desktop\ODONTOSYNC`
+```text
+feature/recetas
+feature/pagos
+feature/inventario
+feature/reportes
+```
 
-Esto simplifica los comandos de compilación y despliegue usados durante el curso.
+Cada integrante realizará sus respectivos commits para mantener identificado el trabajo realizado.
+
+## Integrantes
+
+Proyecto desarrollado por estudiantes del curso de Integrador I.
+
+
+## Estado del proyecto
+
+OdontoSync continúa en desarrollo como parte de las entregas del curso.
+
+La versión actual permite demostrar el funcionamiento de los principales procesos administrativos y clínicos desarrollados hasta el momento.
