@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.time.LocalDate,java.util.List,java.util.Set,java.util.HashSet,pe.odontosync.model.OdontologoDetalle,pe.odontosync.model.EspecialidadOpcion" %>
 <%@ include file="layout-top.jspf" %>
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/odontologos-dialog.css?v=20261024">
 <%
 List<OdontologoDetalle> dentists = (List<OdontologoDetalle>) request.getAttribute("odontologos");
 List<EspecialidadOpcion> specialties = (List<EspecialidadOpcion>) request.getAttribute("especialidades");
@@ -17,7 +18,10 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
     <h1>Odontólogos</h1>
     <p>Directorio profesional, cuenta de acceso, especialidades y estado del equipo clínico.</p>
   </div>
-  <span class="code-chip">CRUD · PROFESIONALES</span>
+  <div class="dentist-heading-actions">
+    <span class="code-chip">CRUD · PROFESIONALES</span>
+    <% if (canManage) { %><button class="btn primary" type="button" data-open-dentist-dialog>+ Nuevo odontólogo</button><% } %>
+  </div>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
@@ -36,13 +40,13 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 </section>
 
 <% if (canManage) { %>
-<section class="crud-card">
+<dialog class="crud-card crud-dialog dentist-dialog" data-dentist-dialog data-auto-open="<%= editing %>">
   <div class="crud-head">
     <div>
       <h2><%= editing ? "Editar odontólogo" : "Registrar odontólogo" %></h2>
       <p><%= editing ? "Actualiza el perfil profesional y su cuenta de acceso." : "Crea el perfil profesional y una cuenta OdontoSync con rol Odontólogo." %></p>
     </div>
-    <% if (editing) { %><a class="btn secondary" href="<%= Html.escape(base) %>/odontologos">Cancelar edición</a><% } %>
+    <a class="btn secondary" href="<%= Html.escape(base) %>/odontologos">Cancelar</a>
   </div>
 
   <form class="crud-form dentist-form" action="<%= Html.escape(base) %>/odontologos" method="post" autocomplete="off">
@@ -98,7 +102,7 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
       <button class="btn primary" type="submit"><%= editing ? "Guardar cambios" : "Registrar odontólogo" %></button>
     </div>
   </form>
-</section>
+</dialog>
 <% } %>
 
 <section class="table-card crud-list dentist-list">
@@ -137,4 +141,5 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 </section>
 
 <p class="read-only"><%= canManage ? "La baja es lógica: citas, historias y atenciones anteriores nunca se eliminan." : "Recepción puede consultar profesionales y sus datos de contacto; la edición corresponde a Administración." %></p>
+<script src="<%= Html.escape(base) %>/js/odontologos-dialog.js" defer></script>
 <%@ include file="layout-bottom.jspf" %>
