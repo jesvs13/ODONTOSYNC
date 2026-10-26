@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.commons.lang3.StringUtils;
 import pe.odontosync.Role;
 import pe.odontosync.User;
 import pe.odontosync.dao.OdontologoCrudDAO;
@@ -107,8 +108,8 @@ public final class OdontologoService {
         String nombres, String apellidos, String correo, String telefono, String colegiatura,
         String fechaIngreso, String estado, List<Long> especialidadIds
     ) {
-        String n = clean(nombres);
-        String a = clean(apellidos);
+        String n = normalizePersonName(nombres);
+        String a = normalizePersonName(apellidos);
         String email = clean(correo).toLowerCase(Locale.ROOT);
         String phone = clean(telefono);
         String license = clean(colegiatura).toUpperCase(Locale.ROOT);
@@ -182,7 +183,11 @@ public final class OdontologoService {
         }
     }
 
-    private String clean(String value) { return value == null ? "" : value.trim(); }
+    private String normalizePersonName(String value) {
+        return StringUtils.normalizeSpace(StringUtils.trimToEmpty(value));
+    }
+
+    private String clean(String value) { return StringUtils.trimToEmpty(value); }
 
     private record Validated(
         String nombres, String apellidos, String correo, String telefono, String colegiatura,
