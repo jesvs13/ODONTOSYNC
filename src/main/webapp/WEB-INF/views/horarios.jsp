@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,pe.odontosync.Role,pe.odontosync.model.HorarioDetalle,pe.odontosync.model.OdontologoOpcion" %>
 <%@ include file="layout-top.jspf" %>
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/horarios-dialog.css?v=20261024">
 <%
 List<HorarioDetalle> schedules = (List<HorarioDetalle>) request.getAttribute("horarios");
 List<OdontologoOpcion> dentists = (List<OdontologoOpcion>) request.getAttribute("odontologosHorario");
@@ -15,20 +16,31 @@ boolean editing = edit != null;
     <h1><%= user.role() == Role.ODONTOLOGO ? "Mis horarios" : "Horarios" %></h1>
     <p><%= user.role() == Role.ODONTOLOGO ? "Consulta tu disponibilidad semanal registrada." : "Disponibilidad semanal del equipo odontológico." %></p>
   </div>
-  <span class="code-chip">AGENDA · DISPONIBILIDAD</span>
+
+  <div class="schedule-heading-actions">
+    <span class="code-chip">AGENDA · DISPONIBILIDAD</span>
+
+    <% if (canManage) { %>
+      <button class="btn primary" type="button" data-open-schedule-dialog>
+        + Nuevo horario
+      </button>
+    <% } %>
+  </div>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
 <% if (error != null) { %><div class="alert danger"><%= Html.escape(error) %></div><% } %>
 
 <% if (canManage) { %>
-<section class="crud-card schedule-editor">
+<dialog class="crud-card crud-dialog schedule-dialog"
+        data-schedule-dialog
+        data-auto-open="<%= editing %>">
   <div class="crud-head">
     <div>
       <h2><%= editing ? "Editar bloque horario" : "Agregar bloque horario" %></h2>
       <p>Los bloques activos de un mismo odontólogo no pueden cruzarse.</p>
     </div>
-    <% if (editing) { %><a class="btn secondary" href="<%= Html.escape(base) %>/horarios">Cancelar edición</a><% } %>
+    <a class="btn secondary" href="<%= Html.escape(base) %>/horarios">Cancelar</a>
   </div>
 
   <form class="crud-form schedule-form" action="<%= Html.escape(base) %>/horarios" method="post">
@@ -71,8 +83,8 @@ boolean editing = edit != null;
     <div class="form-actions">
       <button class="btn primary" type="submit"><%= editing ? "Guardar cambios" : "Agregar horario" %></button>
     </div>
-  </form>
-</section>
+   </form>
+</dialog>
 <% } %>
 
 <section class="schedule-summary">
@@ -116,4 +128,5 @@ boolean editing = edit != null;
 </section>
 
 <p class="read-only"><%= canManage ? "Al inactivar un odontólogo, sus bloques horarios activos también pasan a INACTIVO para evitar disponibilidad incorrecta." : user.role() == Role.ODONTOLOGO ? "Los cambios de disponibilidad son gestionados por Administración." : "Recepción consulta la disponibilidad para coordinar citas; la configuración corresponde a Administración." %></p>
+<script src="<%= Html.escape(base) %>/js/horarios-dialog.js" defer></script>
 <%@ include file="layout-bottom.jspf" %>
