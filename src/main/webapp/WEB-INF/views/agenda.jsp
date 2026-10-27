@@ -32,7 +32,6 @@ if (appointments != null) for (CitaDetalle x : appointments) {
     <h1><%= user.role() == Role.ODONTOLOGO ? "Mis citas" : "Agenda" %></h1>
     <p><%= canSchedule ? "Programa, confirma, reprograma y controla las citas de la clínica." : "Consulta tus citas y registra el resultado de las atenciones confirmadas." %></p>
   </div>
-  <span class="code-chip">CU02 · AGENDA Y CITAS</span>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>

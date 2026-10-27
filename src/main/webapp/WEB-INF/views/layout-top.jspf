@@ -42,10 +42,6 @@ String csrf = (String) session.getAttribute("csrf");
       <strong><%= Html.escape(user.role().label()) %></strong>
       <span><%= Html.escape(user.name()) %></span>
       <span><%= Html.escape(user.clinicName()) %></span>
-      <form action="<%= Html.escape(base) %>/logout" method="post">
-        <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
-        <button class="account-logout" type="submit">Cambiar cuenta →</button>
-      </form>
     </div>
   </aside>
   <div class="workspace">
@@ -58,7 +54,7 @@ String csrf = (String) session.getAttribute("csrf");
       <span class="role-chip"><%= Html.escape(user.role().label()) %></span>
       <form action="<%= Html.escape(base) %>/logout" method="post">
         <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
-        <button class="top-logout" type="submit">Salir ↗</button>
+<button class="top-logout" type="submit">CERRAR SESION</button>
       </form>
     </header>
     <main class="content">

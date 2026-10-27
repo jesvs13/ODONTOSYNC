@@ -18,7 +18,6 @@ boolean editing = edit != null;
   </div>
 
   <div class="schedule-heading-actions">
-    <span class="code-chip">AGENDA · DISPONIBILIDAD</span>
 
     <% if (canManage) { %>
       <button class="btn primary" type="button" data-open-schedule-dialog>

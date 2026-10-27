@@ -21,7 +21,6 @@ boolean editing = edit != null;
     <p><%= canManage ? "Registra, actualiza y consulta la ficha integral de cada paciente." : "Consulta los pacientes vinculados a tus atenciones." %></p>
   </div>
   <div class="patient-heading-actions">
-    <span class="code-chip">CRUD · FICHA CLÍNICA</span>
     <% if (canManage) { %><button class="btn primary" type="button" data-open-patient-dialog>+ Nuevo paciente</button><% } %>
   </div>
 </div>
