@@ -1,6 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,java.time.LocalDate,java.time.Period,pe.odontosync.model.*" %>
 <%@ include file="layout-top.jspf" %>
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/pacientes-dialog.css?v=20261024">
 <%
 List<PacienteDetalle> patients = (List<PacienteDetalle>) request.getAttribute("pacientes");
 PacienteDetalle edit = (PacienteDetalle) request.getAttribute("editPatient");
@@ -19,7 +20,10 @@ boolean editing = edit != null;
     <h1><%= user.role() == pe.odontosync.Role.ODONTOLOGO ? "Mis pacientes" : "Pacientes" %></h1>
     <p><%= canManage ? "Registra, actualiza y consulta la ficha integral de cada paciente." : "Consulta los pacientes vinculados a tus atenciones." %></p>
   </div>
-  <span class="code-chip">CRUD · FICHA CLÍNICA</span>
+  <div class="patient-heading-actions">
+    <span class="code-chip">CRUD · FICHA CLÍNICA</span>
+    <% if (canManage) { %><button class="btn primary" type="button" data-open-patient-dialog>+ Nuevo paciente</button><% } %>
+  </div>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
@@ -41,13 +45,13 @@ boolean editing = edit != null;
 </section>
 
 <% if (canManage) { %>
-<section class="crud-card patient-form-card">
+<dialog class="crud-card crud-dialog patient-dialog" data-patient-dialog data-auto-open="<%= editing %>">
   <div class="crud-head">
     <div>
       <h2><%= editing ? "Editar paciente" : "Registrar paciente" %></h2>
       <p><%= editing ? "Actualiza los datos administrativos sin afectar su historial clínico." : "Crea la ficha administrativa que luego se relacionará con citas y atención clínica." %></p>
     </div>
-    <% if (editing) { %><a class="btn secondary" href="<%= Html.escape(base) %>/pacientes">Cancelar edición</a><% } %>
+    <a class="btn secondary" href="<%= Html.escape(base) %>/pacientes">Cancelar</a>
   </div>
 
   <form class="crud-form patient-form" action="<%= Html.escape(base) %>/pacientes" method="post" autocomplete="off">
@@ -114,7 +118,7 @@ boolean editing = edit != null;
       <button class="btn primary" type="submit"><%= editing ? "Guardar cambios" : "Registrar paciente" %></button>
     </div>
   </form>
-</section>
+</dialog>
 <% } %>
 
 <% if (file != null) {
@@ -228,4 +232,5 @@ boolean editing = edit != null;
 </section>
 
 <p class="read-only"><%= canManage ? "Administración y Recepción pueden mantener los datos del paciente. Odontología consulta únicamente pacientes vinculados a sus citas." : "Tu perfil es de consulta: los datos administrativos se gestionan desde Administración o Recepción." %></p>
+<script src="<%= Html.escape(base) %>/js/pacientes-dialog.js" defer></script>
 <%@ include file="layout-bottom.jspf" %>
