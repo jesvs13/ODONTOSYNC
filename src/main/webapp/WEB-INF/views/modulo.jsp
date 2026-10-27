@@ -4,7 +4,6 @@
 <% TableView table = (TableView) request.getAttribute("table"); %>
 <div class="page-heading">
   <div><h1><%= Html.escape(table.title()) %></h1><p><%= Html.escape(table.subtitle()) %></p></div>
-  <span class="code-chip">DATOS DE LA CLÍNICA</span>
 </div>
 <section class="table-card">
   <div class="table-top">

@@ -13,7 +13,6 @@ boolean canRegister = Boolean.TRUE.equals(request.getAttribute("canRegisterPayme
     <h1>Pagos</h1>
     <p>Registra cobros únicamente de citas que ya fueron atendidas.</p>
   </div>
-  <span class="code-chip">COBROS · CITAS ATENDIDAS</span>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>

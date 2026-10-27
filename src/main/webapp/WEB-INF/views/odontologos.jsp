@@ -19,7 +19,6 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
     <p>Directorio profesional, cuenta de acceso, especialidades y estado del equipo clínico.</p>
   </div>
   <div class="dentist-heading-actions">
-    <span class="code-chip">CRUD · PROFESIONALES</span>
     <% if (canManage) { %><button class="btn primary" type="button" data-open-dentist-dialog>+ Nuevo odontólogo</button><% } %>
   </div>
 </div>

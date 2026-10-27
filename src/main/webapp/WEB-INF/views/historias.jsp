@@ -13,7 +13,6 @@ String error = (String) request.getAttribute("error");
     <h1>Historia clínica</h1>
     <p>Consulta y actualiza la información clínica longitudinal de tus pacientes.</p>
   </div>
-  <span class="code-chip">CU03 · HISTORIA CLÍNICA</span>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>

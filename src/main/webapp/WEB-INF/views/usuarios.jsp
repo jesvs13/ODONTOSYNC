@@ -13,7 +13,6 @@ boolean editing = edit != null;
     <h1>Usuarios y roles</h1>
     <p>Administra las cuentas que pueden ingresar a OdontoSync.</p>
   </div>
-  <span class="code-chip">CRUD · MYSQL</span>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>

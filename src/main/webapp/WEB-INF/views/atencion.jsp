@@ -13,7 +13,6 @@ boolean editingClinical = c != null;
     <h1>Atención clínica</h1>
     <p>Registra diagnóstico, tratamiento y recomendaciones de la cita confirmada.</p>
   </div>
-  <span class="code-chip">CU03 · ATENCIÓN CLÍNICA</span>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>

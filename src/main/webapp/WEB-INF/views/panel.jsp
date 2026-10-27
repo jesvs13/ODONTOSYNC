@@ -7,7 +7,6 @@ List<Card> cards = (List<Card>) request.getAttribute("cards");
 %>
 <div class="page-heading">
   <div><h1><%= Html.escape(user.role().heading()) %></h1><p><%= Html.escape(user.role().subtitle()) %></p></div>
-  <span class="code-chip"><%= Html.escape(user.role().code()) %></span>
 </div>
 <section class="welcome">
   <img class="welcome-icon" src="<%= Html.escape(base) %>/brand/icon-48.png" width="48" height="48" alt="" aria-hidden="true">
