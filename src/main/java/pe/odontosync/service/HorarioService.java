@@ -1,5 +1,6 @@
 package pe.odontosync.service;
 
+import org.apache.commons.lang3.StringUtils;
 import java.sql.SQLException;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -103,15 +104,28 @@ public final class HorarioService {
     }
 
     private LocalTime parseTime(String raw, String label) {
-        try { return LocalTime.parse(raw == null ? "" : raw.trim()); }
-        catch (DateTimeParseException ex) { throw new IllegalArgumentException("La " + label + " no es válida."); }
+    String value = StringUtils.trimToEmpty(raw);
+
+    if (value.isEmpty()) {
+        throw new IllegalArgumentException("La " + label + " es obligatoria.");
     }
 
-    private String normalizeStatus(String raw) {
-        String st = raw == null ? "" : raw.trim().toUpperCase(Locale.ROOT);
-        if (!List.of("ACTIVO", "INACTIVO").contains(st)) throw new IllegalArgumentException("Estado de horario no válido.");
-        return st;
+    try {
+        return LocalTime.parse(value);
+    } catch (DateTimeParseException ex) {
+        throw new IllegalArgumentException("La " + label + " no es válida.");
     }
+}
+
+    private String normalizeStatus(String raw) {
+    String st = StringUtils.trimToEmpty(raw).toUpperCase(Locale.ROOT);
+
+    if (!List.of("ACTIVO", "INACTIVO").contains(st)) {
+        throw new IllegalArgumentException("Estado de horario no válido.");
+    }
+
+    return st;
+}
 
     private void requireAdmin(User current) {
         if (current == null || current.role() != Role.ADMINISTRADOR) {

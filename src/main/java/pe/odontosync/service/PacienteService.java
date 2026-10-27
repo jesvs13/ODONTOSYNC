@@ -6,6 +6,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
 import pe.odontosync.Role;
 import pe.odontosync.User;
 import pe.odontosync.dao.PacienteCrudDAO;
@@ -128,8 +129,8 @@ public final class PacienteService {
             throw new IllegalArgumentException("El DNI debe contener exactamente 8 dígitos.");
         }
 
-        String firstNames = clean(nombres);
-        String lastNames = clean(apellidos);
+        String firstNames = normalizePersonName(nombres);
+        String lastNames = normalizePersonName(apellidos);
         if (firstNames.length() < 2 || firstNames.length() > 100) {
             throw new IllegalArgumentException("Los nombres deben tener entre 2 y 100 caracteres.");
         }
@@ -182,7 +183,11 @@ public final class PacienteService {
         return nullable(cleaned);
     }
 
-    private String clean(String value) { return value == null ? "" : value.trim(); }
+    private String normalizePersonName(String value) {
+        return StringUtils.normalizeSpace(StringUtils.trimToEmpty(value));
+    }
+
+    private String clean(String value) { return StringUtils.trimToEmpty(value); }
     private String nullable(String value) { String v = clean(value); return v.isEmpty() ? null : v; }
 
     private record Validated(
