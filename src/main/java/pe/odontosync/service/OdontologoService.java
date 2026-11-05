@@ -14,6 +14,7 @@ import pe.odontosync.User;
 import pe.odontosync.dao.OdontologoCrudDAO;
 import pe.odontosync.model.EspecialidadOpcion;
 import pe.odontosync.model.OdontologoDetalle;
+import pe.odontosync.security.PasswordPolicy;
 import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de odontólogos. */
@@ -55,7 +56,7 @@ public final class OdontologoService {
     ) throws SQLException {
         requireAdmin(current);
         Validated v = validate(nombres, apellidos, correo, telefono, colegiatura, fechaIngreso, estado, especialidadIds);
-        validatePassword(password, true);
+        PasswordPolicy.validate(password, true);
         if (dao.emailExists(current.clinicId(), v.correo(), null)) {
             throw new IllegalArgumentException("Ya existe una cuenta con ese correo en la clínica.");
         }
@@ -87,7 +88,7 @@ public final class OdontologoService {
         validateSpecialties(v.especialidades());
         String hash = null;
         if (newPassword != null && newPassword.length > 0) {
-            validatePassword(newPassword, false);
+            PasswordPolicy.validate(newPassword, false);
             hash = Passwords.hash(newPassword);
         }
         dao.update(
@@ -142,25 +143,6 @@ public final class OdontologoService {
         for (EspecialidadOpcion option : dao.findActiveSpecialties()) active.add(option.id());
         if (!active.containsAll(requested)) {
             throw new IllegalArgumentException("Una de las especialidades seleccionadas ya no está disponible.");
-        }
-    }
-
-    private void validatePassword(char[] password, boolean required) {
-        if (password == null || password.length == 0) {
-            if (required) throw new IllegalArgumentException("La contraseña es obligatoria.");
-            return;
-        }
-        if (password.length < 8 || password.length > 72) {
-            throw new IllegalArgumentException("La contraseña debe tener entre 8 y 72 caracteres.");
-        }
-        boolean upper = false, lower = false, digit = false;
-        for (char c : password) {
-            upper |= Character.isUpperCase(c);
-            lower |= Character.isLowerCase(c);
-            digit |= Character.isDigit(c);
-        }
-        if (!upper || !lower || !digit) {
-            throw new IllegalArgumentException("La contraseña debe incluir mayúscula, minúscula y número.");
         }
     }
 
