@@ -7,6 +7,7 @@ import java.util.Optional;
 import pe.odontosync.Role;
 import pe.odontosync.dao.UsuarioCrudDAO;
 import pe.odontosync.model.UsuarioDetalle;
+import pe.odontosync.security.PasswordPolicy;
 import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de usuarios. No contiene SQL ni código HTTP. */
@@ -31,7 +32,7 @@ public final class UsuarioCrudService {
     ) throws SQLException {
         Role role = parseRole(roleValue);
         String normalizedEmail = validateCommon(nombres, apellidos, correo, telefono, estado);
-        validatePassword(password, true);
+        PasswordPolicy.validate(password, true);
         String colegiatura = validateColegiatura(role, numeroColegiatura);
 
         if (dao.emailExists(clinicId, normalizedEmail, null)) {
@@ -73,7 +74,7 @@ public final class UsuarioCrudService {
 
         String hash = null;
         if (newPassword != null && newPassword.length > 0) {
-            validatePassword(newPassword, false);
+            PasswordPolicy.validate(newPassword, false);
             hash = Passwords.hash(newPassword);
         }
 
@@ -121,25 +122,6 @@ public final class UsuarioCrudService {
             throw new IllegalArgumentException("Estado de usuario no válido.");
         }
         return email;
-    }
-
-    private void validatePassword(char[] password, boolean required) {
-        if (password == null || password.length == 0) {
-            if (required) throw new IllegalArgumentException("La contraseña es obligatoria.");
-            return;
-        }
-        if (password.length < 8 || password.length > 72) {
-            throw new IllegalArgumentException("La contraseña debe tener entre 8 y 72 caracteres.");
-        }
-        boolean upper = false, lower = false, digit = false;
-        for (char c : password) {
-            upper |= Character.isUpperCase(c);
-            lower |= Character.isLowerCase(c);
-            digit |= Character.isDigit(c);
-        }
-        if (!upper || !lower || !digit) {
-            throw new IllegalArgumentException("La contraseña debe incluir mayúscula, minúscula y número.");
-        }
     }
 
     private Role parseRole(String value) {
