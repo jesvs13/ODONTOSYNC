@@ -23,7 +23,7 @@ public final class AccessFilter implements Filter {
     private static final Set<String> PRIVATE_EXACT = ImmutableSet.of(
         "/panel", "/modulo", "/usuarios", "/pacientes", "/odontologos",
         "/horarios", "/agenda", "/atencion", "/historias", "/logout",
-        "/reportes/exportar-citas.xlsx"
+        "/cambiar-password", "/reportes/exportar-citas.xlsx"
     );
 
     private static final Set<String> PRIVATE_PREFIXES = ImmutableSet.of(
@@ -51,13 +51,7 @@ public final class AccessFilter implements Filter {
         }
 
         // Defensa frente a XSS, clickjacking, MIME sniffing y exposición de contexto.
-        res.setHeader("X-Content-Type-Options", "nosniff");
-        res.setHeader("X-Frame-Options", "DENY");
-        res.setHeader("Referrer-Policy", "no-referrer");
-        res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-        res.setHeader("Content-Security-Policy",
-            "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
-            + "form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
+        SecurityHeaders.values().forEach(res::setHeader);
 
         if (req.isSecure()) {
             res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
