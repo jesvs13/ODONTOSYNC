@@ -14,7 +14,7 @@ String csrf = (String) session.getAttribute("csrf");
   <link rel="icon" type="image/svg+xml" href="<%= Html.escape(base) %>/brand/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="<%= Html.escape(base) %>/brand/icon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="<%= Html.escape(base) %>/brand/icon-16.png">
-  <link rel="stylesheet" href="<%= Html.escape(base) %>/css/estilos.css?v=20261012-semana10">
+  <link rel="stylesheet" href="<%= Html.escape(base) %>/css/estilos.css?v=20261104-tdd-password">
 </head>
 <body>
 <div class="app-shell">
@@ -42,6 +42,7 @@ String csrf = (String) session.getAttribute("csrf");
       <strong><%= Html.escape(user.role().label()) %></strong>
       <span><%= Html.escape(user.name()) %></span>
       <span><%= Html.escape(user.clinicName()) %></span>
+      <a class="account-security" href="<%= Html.escape(base) %>/cambiar-password">Cambiar contraseña</a>
     </div>
   </aside>
   <div class="workspace">

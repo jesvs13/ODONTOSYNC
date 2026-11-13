@@ -823,3 +823,19 @@ tr:hover td { background: #f9fcfe; }
     gap: 5px;
   }
 }
+
+/* Seguridad de cuenta: cambio de contraseña */
+.account-security {
+  color: #5ae0dc;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 3px;
+}
+.account-security:hover { color: #ffffff; }
+.password-card { max-width: 680px; }
+.password-form {
+  grid-template-columns: 1fr;
+  max-width: 620px;
+}
+.password-actions { justify-content: flex-start; }
+
