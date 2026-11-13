@@ -50,6 +50,13 @@ public final class AuditLog {
             user.id(), user.clinicId(), user.role(), safe(action), safe(entity), entityId);
     }
 
+
+    public static void passwordChanged(User user, String remoteAddress) {
+        if (user == null) return;
+        AUDIT.info("event=PASSWORD_CHANGED userId={} clinicId={} role={} ip={}",
+            user.id(), user.clinicId(), user.role(), safe(remoteAddress));
+    }
+
     public static void accessDenied(User user, String path) {
         if (user == null) return;
         AUDIT.warn("event=ACCESS_DENIED userId={} clinicId={} role={} path={}",
