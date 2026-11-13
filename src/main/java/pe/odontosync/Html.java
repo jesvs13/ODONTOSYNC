@@ -23,6 +23,7 @@ public final class Html {
             case "reportes" -> "Reportes";
             case "usuarios" -> "Usuarios";
             case "clinica" -> "Datos clínica";
+            case "cuenta" -> "Mi cuenta";
             default -> "Módulo";
         };
     }
