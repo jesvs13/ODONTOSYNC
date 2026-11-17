@@ -135,6 +135,19 @@ class PasswordResetServiceTest {
         assertTrue(dao.lastNewPasswordHash.startsWith("pbkdf2_sha256$"));
     }
 
+    @Test
+    void rechazaTokenExpiradoUsadoOInexistente() {
+        FakeDAO dao = new FakeDAO();
+        dao.consumeResult = Optional.empty();
+        PasswordResetService service = service(dao, new FakeMailer());
+
+        assertThrows(IllegalArgumentException.class, () -> service.resetPassword(
+            TOKEN,
+            "NuevaClave9".toCharArray(),
+            "NuevaClave9".toCharArray()
+        ));
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
