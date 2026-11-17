@@ -79,7 +79,8 @@ public final class PasswordResetService {
 
     public PasswordResetResult resetPassword(String token, char[] newPassword, char[] confirmation)
         throws SQLException {
-        throw new UnsupportedOperationException("Aun no implementado");
+        PasswordPolicy.validate(newPassword, true);
+        throw new UnsupportedOperationException("Restablecimiento aun no implementado");
     }
 
     static String tokenHash(String token) {
