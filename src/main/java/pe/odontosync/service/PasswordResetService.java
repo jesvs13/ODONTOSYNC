@@ -73,6 +73,7 @@ public final class PasswordResetService {
     }
 
     public boolean isTokenUsable(String token) throws SQLException {
+        if (token == null || !TOKEN.matcher(token).matches()) return false;
         return dao.isTokenUsable(tokenHash(token), clock.instant());
     }
 
