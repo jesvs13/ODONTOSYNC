@@ -57,6 +57,16 @@ public final class AuditLog {
             user.id(), user.clinicId(), user.role(), safe(remoteAddress));
     }
 
+    public static void passwordResetRequested(String email, String remoteAddress) {
+        AUDIT.info("event=PASSWORD_RESET_REQUESTED email={} ip={}",
+            safeEmail(email), safe(remoteAddress));
+    }
+
+    public static void passwordResetCompleted(long userId, long clinicId, String remoteAddress) {
+        AUDIT.info("event=PASSWORD_RESET_COMPLETED userId={} clinicId={} ip={}",
+            userId, clinicId, safe(remoteAddress));
+    }
+
     public static void accessDenied(User user, String path) {
         if (user == null) return;
         AUDIT.warn("event=ACCESS_DENIED userId={} clinicId={} role={} path={}",
