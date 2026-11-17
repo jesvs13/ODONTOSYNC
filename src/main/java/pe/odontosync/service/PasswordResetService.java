@@ -83,7 +83,11 @@ public final class PasswordResetService {
         if (confirmation == null || !Arrays.equals(newPassword, confirmation)) {
             throw new IllegalArgumentException("La confirmacion no coincide con la nueva contrasena.");
         }
-        throw new UnsupportedOperationException("Restablecimiento aun no implementado");
+        String newHash = Passwords.hash(newPassword);
+        Optional<PasswordResetResult> result = dao.consumeTokenAndUpdatePassword(
+            tokenHash(token), newHash, clock.instant()
+        );
+        return result.orElseThrow();
     }
 
     static String tokenHash(String token) {
