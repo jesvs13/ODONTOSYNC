@@ -73,7 +73,7 @@ public final class PasswordResetService {
     }
 
     public boolean isTokenUsable(String token) throws SQLException {
-        throw new UnsupportedOperationException("Aun no implementado");
+        return dao.isTokenUsable(tokenHash(token), clock.instant());
     }
 
     public PasswordResetResult resetPassword(String token, char[] newPassword, char[] confirmation)
