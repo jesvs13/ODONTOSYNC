@@ -61,6 +61,7 @@ public final class PasswordResetService {
         String token = tokenGenerator.generate();
         Instant expiresAt = clock.instant().plus(ttl);
 
+        dao.invalidateUnusedTokens(account.userId(), clock.instant());
         dao.saveToken(account.userId(), account.clinicId(), tokenHash(token), expiresAt);
         String baseUrl = stripTrailingSlash(publicBaseUrl);
         String resetLink = baseUrl + "/restablecer-password?token="
