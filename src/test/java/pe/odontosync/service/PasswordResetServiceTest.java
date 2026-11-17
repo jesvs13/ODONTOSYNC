@@ -53,6 +53,18 @@ class PasswordResetServiceTest {
         assertEquals(List.of(7L), dao.invalidatedUsers);
     }
 
+    @Test
+    void correoInexistenteNoEnviaCorreo() throws Exception {
+        FakeDAO dao = new FakeDAO();
+        FakeMailer mailer = new FakeMailer();
+        PasswordResetService service = service(dao, mailer);
+
+        service.requestReset("nadie@demo.pe", "http://localhost:8080/odontosync");
+
+        assertTrue(dao.saved.isEmpty());
+        assertTrue(mailer.links.isEmpty());
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
