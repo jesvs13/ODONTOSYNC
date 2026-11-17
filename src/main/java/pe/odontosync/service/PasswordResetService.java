@@ -80,6 +80,9 @@ public final class PasswordResetService {
     public PasswordResetResult resetPassword(String token, char[] newPassword, char[] confirmation)
         throws SQLException {
         PasswordPolicy.validate(newPassword, true);
+        if (confirmation == null || !Arrays.equals(newPassword, confirmation)) {
+            throw new IllegalArgumentException("La confirmacion no coincide con la nueva contrasena.");
+        }
         throw new UnsupportedOperationException("Restablecimiento aun no implementado");
     }
 
