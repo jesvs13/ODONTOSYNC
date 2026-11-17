@@ -57,7 +57,9 @@ public final class PasswordResetService {
     public void requestReset(String rawEmail, String publicBaseUrl)
         throws SQLException, PasswordResetDeliveryException {
         String email = rawEmail.trim().toLowerCase(Locale.ROOT);
-        PasswordResetAccount account = dao.findActiveAccountsByEmail(email).get(0);
+        List<PasswordResetAccount> accounts = dao.findActiveAccountsByEmail(email);
+        if (accounts.isEmpty()) return;
+        PasswordResetAccount account = accounts.get(0);
         String token = tokenGenerator.generate();
         Instant expiresAt = clock.instant().plus(ttl);
 
