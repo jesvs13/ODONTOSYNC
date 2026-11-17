@@ -65,6 +65,16 @@ class PasswordResetServiceTest {
         assertTrue(mailer.links.isEmpty());
     }
 
+    @Test
+    void correoInvalidoNoConsultaBaseDeDatos() throws Exception {
+        FakeDAO dao = new FakeDAO();
+        PasswordResetService service = service(dao, new FakeMailer());
+
+        service.requestReset("correo-invalido", "http://localhost:8080/odontosync");
+
+        assertEquals(0, dao.lookupCount);
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
