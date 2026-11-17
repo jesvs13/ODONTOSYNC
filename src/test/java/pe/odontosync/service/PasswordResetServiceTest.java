@@ -117,6 +117,24 @@ class PasswordResetServiceTest {
         ));
     }
 
+    @Test
+    void restablecePasswordConTokenValido() throws Exception {
+        FakeDAO dao = new FakeDAO();
+        dao.consumeResult = Optional.of(new PasswordResetResult(7, 2));
+        PasswordResetService service = service(dao, new FakeMailer());
+
+        PasswordResetResult result = service.resetPassword(
+            TOKEN,
+            "NuevaClave9".toCharArray(),
+            "NuevaClave9".toCharArray()
+        );
+
+        assertEquals(7, result.userId());
+        assertEquals(2, result.clinicId());
+        assertNotNull(dao.lastNewPasswordHash);
+        assertTrue(dao.lastNewPasswordHash.startsWith("pbkdf2_sha256$"));
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
