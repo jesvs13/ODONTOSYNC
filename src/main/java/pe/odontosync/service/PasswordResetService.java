@@ -87,7 +87,7 @@ public final class PasswordResetService {
         Optional<PasswordResetResult> result = dao.consumeTokenAndUpdatePassword(
             tokenHash(token), newHash, clock.instant()
         );
-        return result.orElseThrow();
+        return result.orElseThrow(PasswordResetService::invalidLink);
     }
 
     static String tokenHash(String token) {
@@ -98,6 +98,12 @@ public final class PasswordResetService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 no esta disponible", ex);
         }
+    }
+
+    private static IllegalArgumentException invalidLink() {
+        return new IllegalArgumentException(
+            "El enlace de recuperacion no es valido, ya fue utilizado o ha expirado."
+        );
     }
 
     private static String stripTrailingSlash(String value) {
