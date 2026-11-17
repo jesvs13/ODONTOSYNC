@@ -106,6 +106,17 @@ class PasswordResetServiceTest {
         ));
     }
 
+    @Test
+    void rechazaConfirmacionDiferente() {
+        PasswordResetService service = service(new FakeDAO(), new FakeMailer());
+
+        assertThrows(IllegalArgumentException.class, () -> service.resetPassword(
+            TOKEN,
+            "NuevaClave9".toCharArray(),
+            "OtraClave9".toCharArray()
+        ));
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
