@@ -95,6 +95,17 @@ class PasswordResetServiceTest {
         assertEquals(0, dao.usabilityCount);
     }
 
+    @Test
+    void rechazaPasswordDebil() {
+        PasswordResetService service = service(new FakeDAO(), new FakeMailer());
+
+        assertThrows(IllegalArgumentException.class, () -> service.resetPassword(
+            TOKEN,
+            "debil".toCharArray(),
+            "debil".toCharArray()
+        ));
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
