@@ -86,6 +86,15 @@ class PasswordResetServiceTest {
         assertEquals(64, dao.lastUsabilityHash.length());
     }
 
+    @Test
+    void rechazaTokenConFormatoInvalido() throws Exception {
+        FakeDAO dao = new FakeDAO();
+        PasswordResetService service = service(dao, new FakeMailer());
+
+        assertFalse(service.isTokenUsable("token-corto"));
+        assertEquals(0, dao.usabilityCount);
+    }
+
     private PasswordResetService service(FakeDAO dao, FakeMailer mailer) {
         return new PasswordResetService(dao, mailer, () -> TOKEN, CLOCK, TTL);
     }
