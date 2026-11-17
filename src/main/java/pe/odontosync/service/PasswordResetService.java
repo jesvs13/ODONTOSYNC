@@ -56,7 +56,8 @@ public final class PasswordResetService {
 
     public void requestReset(String rawEmail, String publicBaseUrl)
         throws SQLException, PasswordResetDeliveryException {
-        String email = rawEmail.trim().toLowerCase(Locale.ROOT);
+        String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase(Locale.ROOT);
+        if (email.isBlank() || email.length() > 150 || !EMAIL.matcher(email).matches()) return;
         List<PasswordResetAccount> accounts = dao.findActiveAccountsByEmail(email);
         if (accounts.isEmpty()) return;
         PasswordResetAccount account = accounts.get(0);
