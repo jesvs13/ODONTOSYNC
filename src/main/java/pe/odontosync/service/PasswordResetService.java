@@ -20,6 +20,7 @@ import pe.odontosync.model.PasswordResetResult;
 import pe.odontosync.security.PasswordPolicy;
 import pe.odontosync.security.Passwords;
 
+/** Reglas de negocio de la recuperacion de contrasena sin sesion. */
 public final class PasswordResetService {
     public static final String GENERIC_REQUEST_MESSAGE =
         "Si existe una cuenta asociada al correo indicado, recibiras instrucciones para restablecer tu contrasena.";
@@ -29,6 +30,7 @@ public final class PasswordResetService {
         Pattern.CASE_INSENSITIVE
     );
     private static final Pattern TOKEN = Pattern.compile("^[A-Za-z0-9_-]{43}$");
+    private static final Duration DEFAULT_TTL = Duration.ofMinutes(15);
 
     private final PasswordResetDAO dao;
     private final PasswordResetMailer mailer;
@@ -37,7 +39,13 @@ public final class PasswordResetService {
     private final Duration ttl;
 
     public PasswordResetService(PasswordResetDAO dao, PasswordResetMailer mailer) {
-        this(dao, mailer, new SecurePasswordResetTokenGenerator(), Clock.systemUTC(), Duration.ofMinutes(15));
+        this(
+            dao,
+            mailer,
+            new SecurePasswordResetTokenGenerator(),
+            Clock.systemUTC(),
+            DEFAULT_TTL
+        );
     }
 
     public PasswordResetService(
@@ -47,6 +55,12 @@ public final class PasswordResetService {
         Clock clock,
         Duration ttl
     ) {
+        if (dao == null || mailer == null || tokenGenerator == null || clock == null || ttl == null) {
+            throw new IllegalArgumentException("La configuracion de recuperacion es obligatoria.");
+        }
+        if (ttl.isZero() || ttl.isNegative() || ttl.compareTo(Duration.ofHours(1)) > 0) {
+            throw new IllegalArgumentException("La expiracion del token no es valida.");
+        }
         this.dao = dao;
         this.mailer = mailer;
         this.tokenGenerator = tokenGenerator;
@@ -54,38 +68,73 @@ public final class PasswordResetService {
         this.ttl = ttl;
     }
 
+    /**
+     * Solicita recuperacion. El llamador siempre debe mostrar el mismo mensaje,
+     * exista o no la cuenta, para evitar enumeracion de usuarios.
+     */
     public void requestReset(String rawEmail, String publicBaseUrl)
         throws SQLException, PasswordResetDeliveryException {
-        String email = rawEmail == null ? "" : rawEmail.trim().toLowerCase(Locale.ROOT);
-        if (email.isBlank() || email.length() > 150 || !EMAIL.matcher(email).matches()) return;
-        List<PasswordResetAccount> accounts = dao.findActiveAccountsByEmail(email);
-        if (accounts.isEmpty()) return;
-        PasswordResetAccount account = accounts.get(0);
-        String token = tokenGenerator.generate();
-        Instant expiresAt = clock.instant().plus(ttl);
+        String email = normalizeEmail(rawEmail);
+        if (!validEmail(email)) {
+            performDummyHash();
+            return;
+        }
 
-        dao.invalidateUnusedTokens(account.userId(), clock.instant());
-        dao.saveToken(account.userId(), account.clinicId(), tokenHash(token), expiresAt);
-        String baseUrl = stripTrailingSlash(publicBaseUrl);
-        String resetLink = baseUrl + "/restablecer-password?token="
-            + URLEncoder.encode(token, StandardCharsets.UTF_8);
-        mailer.sendResetLink(account, resetLink);
+        List<PasswordResetAccount> accounts = dao.findActiveAccountsByEmail(email);
+        if (accounts.isEmpty()) {
+            performDummyHash();
+            return;
+        }
+
+        String baseUrl = normalizePublicBaseUrl(publicBaseUrl);
+        Instant now = clock.instant();
+        Instant expiresAt = now.plus(ttl);
+
+        for (PasswordResetAccount account : accounts) {
+            dao.invalidateUnusedTokens(account.userId(), now);
+
+            String token = tokenGenerator.generate();
+            if (!validTokenFormat(token)) {
+                throw new IllegalStateException("El generador produjo un token no valido.");
+            }
+
+            dao.saveToken(
+                account.userId(),
+                account.clinicId(),
+                tokenHash(token),
+                expiresAt
+            );
+
+            String resetLink = baseUrl + "/restablecer-password?token="
+                + URLEncoder.encode(token, StandardCharsets.UTF_8);
+            mailer.sendResetLink(account, resetLink);
+        }
     }
 
     public boolean isTokenUsable(String token) throws SQLException {
-        if (token == null || !TOKEN.matcher(token).matches()) return false;
+        if (!validTokenFormat(token)) return false;
         return dao.isTokenUsable(tokenHash(token), clock.instant());
     }
 
-    public PasswordResetResult resetPassword(String token, char[] newPassword, char[] confirmation)
-        throws SQLException {
+    public PasswordResetResult resetPassword(
+        String token,
+        char[] newPassword,
+        char[] confirmation
+    ) throws SQLException {
+        if (!validTokenFormat(token)) {
+            throw invalidLink();
+        }
+
         PasswordPolicy.validate(newPassword, true);
         if (confirmation == null || !Arrays.equals(newPassword, confirmation)) {
             throw new IllegalArgumentException("La confirmacion no coincide con la nueva contrasena.");
         }
+
         String newHash = Passwords.hash(newPassword);
         Optional<PasswordResetResult> result = dao.consumeTokenAndUpdatePassword(
-            tokenHash(token), newHash, clock.instant()
+            tokenHash(token),
+            newHash,
+            clock.instant()
         );
         return result.orElseThrow(PasswordResetService::invalidLink);
     }
@@ -100,15 +149,40 @@ public final class PasswordResetService {
         }
     }
 
+    private void performDummyHash() {
+        tokenHash(tokenGenerator.generate());
+    }
+
+    private static String normalizeEmail(String raw) {
+        return raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean validEmail(String value) {
+        return !value.isBlank() && value.length() <= 150 && EMAIL.matcher(value).matches();
+    }
+
+    private static boolean validTokenFormat(String token) {
+        return token != null && TOKEN.matcher(token).matches();
+    }
+
+    private static String normalizePublicBaseUrl(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalStateException("Configura ODONTOSYNC_PUBLIC_URL.");
+        }
+        String value = raw.trim();
+        while (value.endsWith("/")) {
+            value = value.substring(0, value.length() - 1);
+        }
+        if (!(value.startsWith("https://") || value.startsWith("http://localhost")
+            || value.startsWith("http://127.0.0.1"))) {
+            throw new IllegalStateException("ODONTOSYNC_PUBLIC_URL debe usar HTTPS fuera de localhost.");
+        }
+        return value;
+    }
+
     private static IllegalArgumentException invalidLink() {
         return new IllegalArgumentException(
             "El enlace de recuperacion no es valido, ya fue utilizado o ha expirado."
         );
-    }
-
-    private static String stripTrailingSlash(String value) {
-        String result = value;
-        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
-        return result;
     }
 }
