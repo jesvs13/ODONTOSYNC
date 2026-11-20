@@ -11,6 +11,7 @@ public final class Html {
 
     public static String moduleLabel(String key) {
         return switch (key) {
+            case "dashboard" -> "Dashboard";
             case "pacientes" -> "Pacientes";
             case "odontologos" -> "Odontólogos";
             case "horarios" -> "Horarios";
