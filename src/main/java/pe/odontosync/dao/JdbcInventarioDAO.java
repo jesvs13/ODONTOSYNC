@@ -239,85 +239,103 @@ public final class JdbcInventarioDAO implements InventarioCrudDAO {
         long clinicId, long userId, long itemId, String type,
         BigDecimal quantity, String reason
     ) throws SQLException {
-        String itemSql = """
-            SELECT stock_actual, estado FROM insumos
-            WHERE id_insumo=? AND id_clinica=?
-            FOR UPDATE
-            """;
-        String userSql = """
-            SELECT 1 FROM usuarios
-            WHERE id_usuario=? AND id_clinica=? AND estado='ACTIVO'
-            LIMIT 1
-            """;
-        String insertSql = """
-            INSERT INTO movimientos_inventario(id_insumo,id_usuario,tipo,cantidad,motivo)
-            VALUES (?,?,?,?,?)
-            """;
-
         try (Connection cn = DatabaseConnection.getConnection()) {
             boolean previousAutoCommit = cn.getAutoCommit();
             cn.setAutoCommit(false);
             try {
-                BigDecimal stock;
-                String status;
-                try (PreparedStatement ps = cn.prepareStatement(itemSql)) {
-                    ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                    ps.setLong(1, itemId);
-                    ps.setLong(2, clinicId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) {
-                            throw new IllegalStateException("El insumo no existe o no pertenece a tu clínica.");
-                        }
-                        stock = rs.getBigDecimal("stock_actual");
-                        status = rs.getString("estado");
-                    }
-                }
-
-                if (!"ACTIVO".equals(status)) {
-                    throw new IllegalStateException("No se pueden registrar movimientos en un insumo inactivo.");
-                }
-                if ("SALIDA".equals(type) && stock.compareTo(quantity) < 0) {
-                    throw new IllegalStateException("Stock insuficiente para realizar la salida.");
-                }
-
-                try (PreparedStatement ps = cn.prepareStatement(userSql)) {
-                    ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                    ps.setLong(1, userId);
-                    ps.setLong(2, clinicId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) {
-                            throw new IllegalStateException("El usuario no pertenece a la clínica activa.");
-                        }
-                    }
-                }
-
-                long movementId;
-                try (PreparedStatement ps = cn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
-                    ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                    ps.setLong(1, itemId);
-                    ps.setLong(2, userId);
-                    ps.setString(3, type);
-                    ps.setBigDecimal(4, quantity);
-                    ps.setString(5, reason);
-                    ps.executeUpdate();
-                    try (ResultSet keys = ps.getGeneratedKeys()) {
-                        if (!keys.next()) {
-                            throw new SQLException("MySQL no devolvió el identificador del movimiento.");
-                        }
-                        movementId = keys.getLong(1);
-                    }
-                }
-
+                LockedItem item = lockItem(cn, clinicId, itemId);
+                validateMovement(item, type, quantity);
+                requireActiveUser(cn, clinicId, userId);
+                long movementId = insertMovement(cn, userId, itemId, type, quantity, reason);
                 cn.commit();
                 cn.setAutoCommit(previousAutoCommit);
                 return movementId;
             } catch (SQLException | RuntimeException ex) {
-                try { cn.rollback(); } catch (SQLException rollbackEx) { ex.addSuppressed(rollbackEx); }
-                try { cn.setAutoCommit(previousAutoCommit); } catch (SQLException restoreEx) { ex.addSuppressed(restoreEx); }
+                rollbackAndRestore(cn, previousAutoCommit, ex);
                 throw ex;
             }
         }
     }
+
+    private LockedItem lockItem(Connection cn, long clinicId, long itemId) throws SQLException {
+        String sql = """
+            SELECT stock_actual, estado FROM insumos
+            WHERE id_insumo=? AND id_clinica=?
+            FOR UPDATE
+            """;
+        try (PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            ps.setLong(1, itemId);
+            ps.setLong(2, clinicId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalStateException("El insumo no existe o no pertenece a tu clínica.");
+                }
+                return new LockedItem(rs.getBigDecimal("stock_actual"), rs.getString("estado"));
+            }
+        }
+    }
+
+    private void validateMovement(LockedItem item, String type, BigDecimal quantity) {
+        if (!"ACTIVO".equals(item.status())) {
+            throw new IllegalStateException("No se pueden registrar movimientos en un insumo inactivo.");
+        }
+        if ("SALIDA".equals(type) && item.stock().compareTo(quantity) < 0) {
+            throw new IllegalStateException("Stock insuficiente para realizar la salida.");
+        }
+    }
+
+    private void requireActiveUser(Connection cn, long clinicId, long userId) throws SQLException {
+        String sql = """
+            SELECT 1 FROM usuarios
+            WHERE id_usuario=? AND id_clinica=? AND estado='ACTIVO'
+            LIMIT 1
+            """;
+        try (PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            ps.setLong(1, userId);
+            ps.setLong(2, clinicId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalStateException("El usuario no pertenece a la clínica activa.");
+                }
+            }
+        }
+    }
+
+    private long insertMovement(
+        Connection cn,
+        long userId,
+        long itemId,
+        String type,
+        BigDecimal quantity,
+        String reason
+    ) throws SQLException {
+        String sql = """
+            INSERT INTO movimientos_inventario(id_insumo,id_usuario,tipo,cantidad,motivo)
+            VALUES (?,?,?,?,?)
+            """;
+        try (PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
+            ps.setLong(1, itemId);
+            ps.setLong(2, userId);
+            ps.setString(3, type);
+            ps.setBigDecimal(4, quantity);
+            ps.setString(5, reason);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) return keys.getLong(1);
+            }
+        }
+        throw new SQLException("MySQL no devolvió el identificador del movimiento.");
+    }
+
+    private void rollbackAndRestore(Connection cn, boolean previousAutoCommit, Exception cause) {
+        try { cn.rollback(); } catch (SQLException ex) { cause.addSuppressed(ex); }
+        try { cn.setAutoCommit(previousAutoCommit); } catch (SQLException ex) { cause.addSuppressed(ex); }
+    }
+
+    private record LockedItem(BigDecimal stock, String status) { }
 
     private InventarioInsumo mapItem(ResultSet rs) throws SQLException {
         return new InventarioInsumo(

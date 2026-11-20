@@ -47,9 +47,7 @@ public final class InventarioService {
 
     public InventarioInsumo detail(User current, long itemId) throws SQLException {
         requireAccess(current);
-        if (itemId <= 0) {
-            throw new IllegalArgumentException("Selecciona un insumo válido.");
-        }
+        requireItemId(itemId);
         return dao.findDetailedById(current.clinicId(), itemId)
             .orElseThrow(() -> new IllegalArgumentException(
                 "El insumo no existe o no pertenece a tu clínica."
@@ -104,9 +102,7 @@ public final class InventarioService {
         String statusRaw
     ) throws SQLException {
         requireManage(current);
-        if (itemId <= 0) {
-            throw new IllegalArgumentException("Selecciona un insumo válido.");
-        }
+        requireItemId(itemId);
         if (categoryId <= 0) {
             throw new IllegalArgumentException("Selecciona una categoría válida.");
         }
@@ -135,9 +131,7 @@ public final class InventarioService {
 
     public void changeStatus(User current, long itemId, String statusRaw) throws SQLException {
         requireManage(current);
-        if (itemId <= 0) {
-            throw new IllegalArgumentException("Selecciona un insumo válido.");
-        }
+        requireItemId(itemId);
         detail(current, itemId);
         dao.updateStatus(current.clinicId(), itemId, normalizeStatus(statusRaw));
     }
@@ -150,9 +144,7 @@ public final class InventarioService {
         String reasonRaw
     ) throws SQLException {
         requireManage(current);
-        if (itemId <= 0) {
-            throw new IllegalArgumentException("Selecciona un insumo válido.");
-        }
+        requireItemId(itemId);
 
         String type = StringUtils.trimToEmpty(typeRaw).toUpperCase(Locale.ROOT);
         if (!MOVEMENT_TYPES.contains(type)) {
@@ -168,6 +160,12 @@ public final class InventarioService {
             );
         } catch (IllegalStateException ex) {
             throw new IllegalArgumentException(ex.getMessage(), ex);
+        }
+    }
+
+    private void requireItemId(long itemId) {
+        if (itemId <= 0) {
+            throw new IllegalArgumentException("Selecciona un insumo válido.");
         }
     }
 
