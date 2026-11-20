@@ -4,6 +4,7 @@
 String error = (String) request.getAttribute("error");
 String base = request.getContextPath();
 boolean passwordResetDone = "1".equals(request.getParameter("restablecida"));
+String verification = request.getParameter("verificacion");
 %>
 <!doctype html>
 <html lang="es">
@@ -25,6 +26,8 @@ boolean passwordResetDone = "1".equals(request.getParameter("restablecida"));
       <h1>Iniciar sesión</h1>
       <% if (error != null) { %><p class="alert danger" role="alert"><%= Html.escape(error) %></p><% } %>
       <% if (passwordResetDone) { %><p class="alert success" role="status">Contraseña restablecida correctamente. Ya puedes iniciar sesión.</p><% } %>
+      <% if ("expirada".equals(verification)) { %><p class="alert danger" role="alert">El código de seguridad venció. Inicia sesión nuevamente.</p><% } %>
+      <% if ("bloqueada".equals(verification)) { %><p class="alert danger" role="alert">La verificación fue bloqueada por demasiados códigos incorrectos. Inicia sesión nuevamente.</p><% } %>
       <form action="<%= Html.escape(base) %>/login" method="post">
         <label for="correo">Correo electrónico</label>
         <input id="correo" name="correo" type="email" autocomplete="username" required maxlength="150" placeholder="usuario@odontosync.pe">
