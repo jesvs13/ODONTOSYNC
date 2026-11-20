@@ -73,11 +73,12 @@ public final class DashboardAnalyticsServlet extends HttpServlet {
             req.setAttribute("dentists", dentists);
             req.setAttribute(
                 "dashboard",
-                dashboardService.load(
+                dashboardService.loadSection(
                     current,
                     range.from(),
                     range.to(),
-                    dentistUserId
+                    dentistUserId,
+                    section
                 )
             );
 
