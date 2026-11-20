@@ -166,6 +166,10 @@ String error = (String) request.getAttribute("error");
               <div><span>Medicamentos</span><p><%= Html.escape(r.medicamentos()) %></p></div>
               <div><span>Indicaciones</span><p><%= Html.escape(r.indicaciones()) %></p></div>
             </div>
+            <a class="btn tiny secondary"
+               href="<%= Html.escape(base) %>/modulo/recetas/ver?id=<%= r.idReceta() %>&paciente=<%= p.id() %>">
+              Ver receta
+            </a>
           </article>
         <% } %>
         <% if (patientRecipes == null || patientRecipes.isEmpty()) { %>
