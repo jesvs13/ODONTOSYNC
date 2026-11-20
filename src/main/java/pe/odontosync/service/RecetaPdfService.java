@@ -43,18 +43,21 @@ public final class RecetaPdfService {
         out.append("40 733 m 555 733 l S\n");
 
         // Identificación del documento.
-        out.append("0.12 0.18 0.23 rg\n");
+        bodyColor(out);
         text(out, "F2", 10, 55, 708, "Receta N.° " + receta.idReceta());
         text(out, "F1", 10, 370, 708, "Fecha de emisión: " + safe(receta.fecha()));
 
         // Paciente.
         sectionTitle(out, 55, 672, "PACIENTE");
         infoBox(out, 55, 620, 500, 38);
+
+        bodyColor(out);
         text(out, "F1", 8, 68, 644, "Nombre");
         text(out, "F2", 11, 68, 627, safe(receta.paciente()));
 
         // Medicamentos.
         sectionTitle(out, 55, 585, "MEDICAMENTOS");
+
         List<String> medicationLines = wrapLines(safe(receta.medicamentos()), 76);
         if (medicationLines.isEmpty()) {
             medicationLines = List.of("-");
@@ -66,6 +69,8 @@ public final class RecetaPdfService {
 
         int y = 548;
         int item = 1;
+
+        bodyColor(out);
         for (String line : medicationLines) {
             text(out, "F2", 10, 70, y, item + ".");
             text(out, "F1", 10, 92, y, line);
@@ -87,13 +92,16 @@ public final class RecetaPdfService {
         infoBox(out, 55, indicationBottom, 500, indicationHeight);
 
         y = indicationsTitleY - 42;
+
+        bodyColor(out);
         for (String line : indicationLines) {
             text(out, "F1", 10, 70, y, line);
             y -= 17;
         }
 
-        // Pie.
+        // Pie institucional.
         int footerY = Math.max(62, indicationBottom - 55);
+
         out.append("0.82 0.88 0.91 RG\n");
         out.append("40 ").append(footerY + 18).append(" m 555 ")
             .append(footerY + 18).append(" l S\n");
@@ -105,6 +113,10 @@ public final class RecetaPdfService {
             "Receta médica generada electrónicamente.");
 
         return out.toString();
+    }
+
+    private void bodyColor(StringBuilder out) {
+        out.append("0.12 0.18 0.23 rg\n");
     }
 
     private void sectionTitle(StringBuilder out, int x, int y, String title) {
@@ -265,6 +277,7 @@ public final class RecetaPdfService {
             << /Size 7 /Root 1 0 R >>
             startxref
             """);
+
         write(pdf, Integer.toString(xrefOffset));
         write(pdf, "\n%%EOF\n");
 
