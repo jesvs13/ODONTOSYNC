@@ -40,6 +40,7 @@ class RecetaServiceTest {
         assertEquals(5, dao.clinicId);
         assertEquals(44, dao.dentistUserId);
         assertEquals(31, dao.viewedPatientId);
+        assertEquals(801, recipes.get(0).idReceta());
         assertEquals("Ibuprofeno 500 mg", recipes.get(0).medicamentos());
     }
 
@@ -118,6 +119,7 @@ class RecetaServiceTest {
             this.dentistUserId = dentistUserId;
             this.viewedPatientId = patientId;
             return List.of(new RecetaResumen(
+                801,
                 "2026-11-19 20:00",
                 "Ana García",
                 "Ibuprofeno 500 mg",
@@ -134,6 +136,7 @@ class RecetaServiceTest {
             this.dentistUserId = dentistUserId;
             this.viewedRecipeId = recipeId;
             return new RecetaResumen(
+                801,
                 "2026-11-19 20:00",
                 "Ana García",
                 "Ibuprofeno 500 mg",
