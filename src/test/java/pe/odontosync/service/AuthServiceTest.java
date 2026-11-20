@@ -59,6 +59,35 @@ class AuthServiceTest {
         assertEquals(0L, dao.lastUpdatedUserId);
     }
 
+
+    @Test
+    void primerFactorValidoNoActualizaUltimoAccesoHastaCompletarSegundoFactor() throws Exception {
+        FakeUsuarioDAO dao = new FakeUsuarioDAO(
+            List.of(account("ACTIVO", "ACTIVA", "ADMINISTRADOR", ADMIN_HASH))
+        );
+        AuthService service = new AuthService(dao);
+
+        User user = service.verifyFirstFactor(
+            "admin@odontosync.pe",
+            "OdontoAdmin26!".toCharArray()
+        );
+
+        assertNotNull(user);
+        assertEquals(0L, dao.lastUpdatedUserId);
+
+        service.completeLogin(user);
+
+        assertEquals(user.id(), dao.lastUpdatedUserId);
+    }
+
+    @Test
+    void segundoFactorNoPuedeCompletarLoginSinUsuario() {
+        FakeUsuarioDAO dao = new FakeUsuarioDAO(List.of());
+        AuthService service = new AuthService(dao);
+
+        assertThrows(IllegalArgumentException.class, () -> service.completeLogin(null));
+    }
+
     private static LoginAccount account(String userStatus, String clinicStatus, String role, String hash) {
         return new LoginAccount(1, 1, "Admin", "Demo", hash, userStatus, role, "OdontoSync Demo", clinicStatus);
     }
