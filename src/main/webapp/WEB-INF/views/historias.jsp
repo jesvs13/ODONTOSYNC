@@ -1,184 +1,723 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.util.List,pe.odontosync.model.*" %>
+<%@ page import="java.util.List,java.net.URLEncoder,java.nio.charset.StandardCharsets,pe.odontosync.model.*" %>
 <%@ include file="layout-top.jspf" %>
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/historias-ui.css?v=20261120-issue29-ux3">
 <%
-List<HistoriaPacienteResumen> items = (List<HistoriaPacienteResumen>) request.getAttribute("historyList");
-HistoriaPacienteVista view = (HistoriaPacienteVista) request.getAttribute("historyView");
-List<RecetaResumen> patientRecipes = (List<RecetaResumen>) request.getAttribute("patientRecipes");
+List<HistoriaPacienteResumen> items =
+    (List<HistoriaPacienteResumen>) request.getAttribute("historyList");
+HistoriaPacienteVista view =
+    (HistoriaPacienteVista) request.getAttribute("historyView");
+List<RecetaResumen> patientRecipes =
+    (List<RecetaResumen>) request.getAttribute("patientRecipes");
 String query = (String) request.getAttribute("historyQuery");
 String success = (String) request.getAttribute("success");
 String error = (String) request.getAttribute("error");
+String historyTab = (String) request.getAttribute("historyTab");
+if (historyTab == null) historyTab = "resumen";
 %>
-<div class="page-heading">
+
+<div class="page-heading clinical-page-heading">
   <div>
     <h1>Historia clínica</h1>
-    <p>Consulta y actualiza la información clínica longitudinal de tus pacientes.</p>
+    <p>Consulta la evolución clínica, antecedentes, alergias y recetas de tus pacientes en un solo lugar.</p>
   </div>
+
+  <% if (view != null) { %>
+  <div class="clinical-page-actions">
+    <a class="btn secondary" href="<%= Html.escape(base) %>/historias">← Volver a historias</a>
+  </div>
+  <% } %>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
 <% if (error != null) { %><div class="alert danger"><%= Html.escape(error) %></div><% } %>
 
-<section class="patient-toolbar history-toolbar">
+<% if (view == null) { %>
+<section class="patient-toolbar history-toolbar history-toolbar-compact">
   <form class="patient-search" action="<%= Html.escape(base) %>/historias" method="get">
     <label>Buscar paciente o documento</label>
     <div class="search-row">
-      <input name="q" maxlength="80" value="<%= Html.escape(query == null ? "" : query) %>" placeholder="Nombre, apellido o documento">
+      <input name="q"
+             maxlength="80"
+             value="<%= Html.escape(query == null ? "" : query) %>"
+             placeholder="Nombre, apellido o documento">
       <button class="btn primary" type="submit">Buscar</button>
       <a class="btn secondary" href="<%= Html.escape(base) %>/historias">Limpiar</a>
     </div>
   </form>
-  <div class="patient-toolbar-note"><strong><%= items == null ? 0 : items.size() %></strong><span>pacientes vinculados</span></div>
+
+  <div class="patient-toolbar-note">
+    <strong><%= items == null ? 0 : items.size() %></strong>
+    <span>pacientes vinculados</span>
+  </div>
 </section>
 
-<section class="table-card history-list-card">
+<section class="table-card history-list-card history-list-card-compact">
   <div class="table-top">
-    <div><h2>Mis historias</h2><span>Solo pacientes vinculados a tus citas.</span></div>
+    <div>
+      <h2>Mis historias</h2>
+      <span>Solo pacientes vinculados a tus citas dentro de la clínica.</span>
+    </div>
   </div>
-  <div class="table-scroll">
+
+  <div class="table-scroll history-table-scroll">
     <table>
-      <thead><tr><th>Paciente</th><th>Documento</th><th>Apertura</th><th>Estado</th><th>Última consulta</th><th></th></tr></thead>
+      <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>Documento</th>
+          <th>Apertura</th>
+          <th>Estado</th>
+          <th>Última consulta</th>
+          <th></th>
+        </tr>
+      </thead>
       <tbody>
       <% if (items != null) for (HistoriaPacienteResumen h : items) { %>
         <tr>
           <td><strong><%= Html.escape(h.paciente()) %></strong></td>
           <td><%= Html.escape(h.documento()) %></td>
           <td><%= Html.escape(h.apertura()) %></td>
-          <td><span class="history-status <%= "ACTIVA".equals(h.estado()) ? "active" : "pending" %>"><%= Html.escape(h.estado()) %></span></td>
+          <td>
+            <span class="history-status <%= "ACTIVA".equals(h.estado()) ? "active" : "pending" %>">
+              <%= Html.escape(h.estado()) %>
+            </span>
+          </td>
           <td><%= Html.escape(h.ultimaConsulta()) %></td>
-          <td><a class="btn tiny secondary" href="<%= Html.escape(base) %>/historias?paciente=<%= h.idPaciente() %>">Abrir</a></td>
+          <td>
+            <a class="btn tiny primary"
+               href="<%= Html.escape(base) %>/historias?paciente=<%= h.idPaciente() %>">
+              Abrir historia
+            </a>
+          </td>
         </tr>
       <% } %>
-      <% if (items == null || items.isEmpty()) { %><tr><td class="empty" colspan="6">No hay pacientes que coincidan con la búsqueda.</td></tr><% } %>
+
+      <% if (items == null || items.isEmpty()) { %>
+        <tr>
+          <td class="empty" colspan="6">No hay pacientes que coincidan con la búsqueda.</td>
+        </tr>
+      <% } %>
       </tbody>
     </table>
   </div>
 </section>
 
-<% if (view != null) {
+<p class="read-only">
+  Al abrir un paciente accederás a su resumen, antecedentes, consultas y recetas sin cargar todo el contenido en una sola pantalla.
+</p>
+
+<% } else {
    PacienteDetalle p = view.paciente();
    HistoriaClinicaDetalle h = view.historia().orElse(null);
+
+   String patientPhone = p.telefono() == null ? "" : p.telefono().trim();
+   String patientWhatsappNumber = patientPhone.replaceAll("\\D", "");
+   if (patientWhatsappNumber.length() == 9 && patientWhatsappNumber.startsWith("9")) {
+       patientWhatsappNumber = "51" + patientWhatsappNumber;
+   } else if (!(patientWhatsappNumber.length() == 11 && patientWhatsappNumber.startsWith("519"))) {
+       patientWhatsappNumber = "";
+   }
 %>
-<section class="patient-file clinical-history-file">
+
+<section class="patient-file clinical-history-file clinical-history-file-compact">
   <div class="patient-file-head">
-    <div class="patient-avatar"><%= Html.escape(p.nombres().isBlank() ? "P" : p.nombres().substring(0,1).toUpperCase()) %></div>
-    <div>
+    <div class="patient-avatar">
+      <%= Html.escape(p.nombres().isBlank() ? "P" : p.nombres().substring(0,1).toUpperCase()) %>
+    </div>
+
+    <div class="clinical-patient-title">
       <span class="eyebrow">HISTORIA DEL PACIENTE</span>
       <h2><%= Html.escape(p.nombreCompleto()) %></h2>
-      <p><%= Html.escape(p.tipoDocumento()) %> <%= Html.escape(p.numeroDocumento()) %> · <%= Html.escape(p.estado()) %></p>
+      <p>
+        <%= Html.escape(p.tipoDocumento()) %>
+        <%= Html.escape(p.numeroDocumento()) %>
+        ·
+        <%= Html.escape(p.estado()) %>
+      </p>
     </div>
+
     <div class="patient-file-actions">
-      <span class="history-status <%= h != null && "ACTIVA".equals(h.estado()) ? "active" : "pending" %>"><%= h == null ? "SIN ABRIR" : Html.escape(h.estado()) %></span>
-      <a class="btn secondary" href="<%= Html.escape(base) %>/pacientes?ficha=<%= p.id() %>">Ficha paciente</a>
-      <a class="btn primary" href="<%= Html.escape(base) %>/modulo/recetas?paciente=<%= p.id() %>">Emitir receta</a>
+      <span class="history-status <%= h != null && "ACTIVA".equals(h.estado()) ? "active" : "pending" %>">
+        <%= h == null ? "SIN ABRIR" : Html.escape(h.estado()) %>
+      </span>
+      <button class="btn secondary"
+              type="button"
+              data-open-clinical-dialog="patient-file">
+        Ficha paciente
+      </button>
     </div>
   </div>
 
-  <div class="patient-data-grid clinical-patient-summary">
-    <div><span>Fecha nacimiento</span><strong><%= p.fechaNacimiento() == null ? "—" : p.fechaNacimiento() %></strong></div>
-    <div><span>Sexo</span><strong><%= Html.escape(p.sexo() == null ? "—" : p.sexo()) %></strong></div>
-    <div><span>Teléfono</span><strong><%= Html.escape(p.telefono() == null ? "—" : p.telefono()) %></strong></div>
-    <div><span>Historia abierta</span><strong><%= h == null ? "Se abrirá al guardar datos clínicos" : Html.escape(h.fechaApertura()) %></strong></div>
+  <div class="patient-data-grid clinical-patient-summary clinical-summary-compact">
+    <div>
+      <span>Fecha nacimiento</span>
+      <strong><%= p.fechaNacimiento() == null ? "—" : p.fechaNacimiento() %></strong>
+    </div>
+    <div>
+      <span>Sexo</span>
+      <strong><%= Html.escape(p.sexo() == null ? "—" : p.sexo()) %></strong>
+    </div>
+    <div>
+      <span>Teléfono</span>
+      <strong><%= Html.escape(p.telefono() == null ? "—" : p.telefono()) %></strong>
+    </div>
+    <div>
+      <span>Historia abierta</span>
+      <strong><%= h == null ? "Pendiente" : Html.escape(h.fechaApertura()) %></strong>
+    </div>
+  </div>
+</section>
+
+
+<dialog class="crud-card crud-dialog clinical-dialog clinical-patient-dialog"
+        data-clinical-dialog="patient-file">
+  <div class="crud-head clinical-modal-head">
+    <div>
+      <span class="clinical-dialog-eyebrow">FICHA DEL PACIENTE</span>
+      <h2><%= Html.escape(p.nombreCompleto()) %></h2>
+      <p>Datos personales y de contacto registrados para este paciente.</p>
+    </div>
+    <button class="btn secondary" type="button" data-close-clinical-dialog>Cerrar</button>
   </div>
 
-  <div class="clinical-history-grid">
-    <section class="patient-section history-notes-section">
-      <div class="section-title"><div><span>RESUMEN</span><h3>Observaciones generales</h3></div></div>
-      <form action="<%= Html.escape(base) %>/historias" method="post" class="clinical-inline-form">
-        <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
-        <input type="hidden" name="accion" value="notas">
-        <input type="hidden" name="id_paciente" value="<%= p.id() %>">
-        <textarea name="observaciones_generales" maxlength="5000" rows="5" placeholder="Resumen clínico relevante del paciente"><%= Html.escape(h == null ? "" : h.observacionesGenerales()) %></textarea>
-        <button class="btn primary" type="submit">Guardar observaciones</button>
-      </form>
-    </section>
+  <div class="clinical-patient-file-grid">
+    <div><span>Tipo de documento</span><strong><%= Html.escape(p.tipoDocumento()) %></strong></div>
+    <div><span>Número de documento</span><strong><%= Html.escape(p.numeroDocumento()) %></strong></div>
+    <div><span>Nombres</span><strong><%= Html.escape(p.nombres()) %></strong></div>
+    <div><span>Apellidos</span><strong><%= Html.escape(p.apellidos()) %></strong></div>
+    <div><span>Fecha de nacimiento</span><strong><%= p.fechaNacimiento() == null ? "—" : p.fechaNacimiento() %></strong></div>
+    <div><span>Sexo</span><strong><%= Html.escape(p.sexo() == null || p.sexo().isBlank() ? "—" : p.sexo()) %></strong></div>
+    <div><span>Teléfono</span><strong><%= Html.escape(patientPhone.isBlank() ? "No registrado" : patientPhone) %></strong></div>
+    <div><span>Correo</span><strong><%= Html.escape(p.correo() == null || p.correo().isBlank() ? "No registrado" : p.correo()) %></strong></div>
+    <div class="span-2"><span>Dirección</span><strong><%= Html.escape(p.direccion() == null || p.direccion().isBlank() ? "No registrada" : p.direccion()) %></strong></div>
+    <div><span>Ocupación</span><strong><%= Html.escape(p.ocupacion() == null || p.ocupacion().isBlank() ? "No registrada" : p.ocupacion()) %></strong></div>
+    <div><span>Estado</span><strong><%= Html.escape(p.estado()) %></strong></div>
+    <div><span>Contacto de emergencia</span><strong><%= Html.escape(p.contactoEmergencia() == null || p.contactoEmergencia().isBlank() ? "No registrado" : p.contactoEmergencia()) %></strong></div>
+    <div><span>Teléfono de emergencia</span><strong><%= Html.escape(p.telefonoEmergencia() == null || p.telefonoEmergencia().isBlank() ? "No registrado" : p.telefonoEmergencia()) %></strong></div>
+  </div>
 
-    <section class="patient-section">
-      <div class="section-title"><div><span>SEGURIDAD</span><h3>Alergias</h3></div><span><%= view.alergias().size() %> registros</span></div>
-      <div class="stack-list clinical-stack">
-        <% for (AlergiaClinicaDetalle x : view.alergias()) { %>
-          <div class="stack-item allergy-item"><strong><%= Html.escape(x.alergeno()) %></strong><span><%= Html.escape(x.reaccion().isBlank() ? "Reacción no especificada" : x.reaccion()) %></span><small><%= Html.escape(x.observaciones()) %> · <%= Html.escape(x.fechaRegistro()) %></small></div>
-        <% } %>
-        <% if (view.alergias().isEmpty()) { %><p class="empty-note">No hay alergias registradas.</p><% } %>
-      </div>
-      <form action="<%= Html.escape(base) %>/historias" method="post" class="mini-clinical-form">
-        <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
-        <input type="hidden" name="accion" value="alergia">
-        <input type="hidden" name="id_paciente" value="<%= p.id() %>">
-        <input name="alergeno" maxlength="150" required placeholder="Alérgeno">
-        <input name="reaccion" maxlength="255" placeholder="Reacción">
-        <textarea name="observaciones" maxlength="2000" rows="2" placeholder="Observaciones"></textarea>
-        <button class="btn secondary" type="submit">Agregar alergia</button>
-      </form>
-    </section>
+  <div class="clinical-modal-footer">
+    <span>Esta ficha se consulta sin salir de la historia clínica actual.</span>
+    <button class="btn primary" type="button" data-close-clinical-dialog>Cerrar ficha</button>
+  </div>
+</dialog>
 
-    <section class="patient-section">
-      <div class="section-title"><div><span>ANTECEDENTES</span><h3>Antecedentes médicos</h3></div><span><%= view.antecedentes().size() %> registros</span></div>
-      <div class="stack-list clinical-stack">
-        <% for (AntecedenteClinicoDetalle x : view.antecedentes()) { %>
-          <div class="stack-item"><strong><%= Html.escape(x.tipo()) %></strong><span><%= Html.escape(x.descripcion()) %></span><small><%= Html.escape(x.observaciones()) %> · <%= Html.escape(x.fechaRegistro()) %></small></div>
-        <% } %>
-        <% if (view.antecedentes().isEmpty()) { %><p class="empty-note">No hay antecedentes registrados.</p><% } %>
-      </div>
-      <form action="<%= Html.escape(base) %>/historias" method="post" class="mini-clinical-form">
-        <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
-        <input type="hidden" name="accion" value="antecedente">
-        <input type="hidden" name="id_paciente" value="<%= p.id() %>">
-        <input name="tipo" maxlength="100" required placeholder="Tipo: Médico, familiar, quirúrgico...">
-        <input name="descripcion" maxlength="255" required placeholder="Descripción">
-        <textarea name="observaciones" maxlength="2000" rows="2" placeholder="Observaciones"></textarea>
-        <button class="btn secondary" type="submit">Agregar antecedente</button>
-      </form>
-    </section>
+<nav class="clinical-tabs" aria-label="Secciones de historia clínica">
+  <a class="<%= "resumen".equals(historyTab) ? "active" : "" %>"
+     href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&tab=resumen">
+    Resumen
+  </a>
 
-    <section class="patient-section patient-section-wide clinical-consultations">
-      <div class="section-title"><div><span>EVOLUCIÓN</span><h3>Consultas clínicas</h3></div><span><%= view.consultas().size() %> atenciones</span></div>
-      <div class="consultation-timeline">
-        <% for (ConsultaHistorialDetalle x : view.consultas()) { %>
-          <article class="consultation-entry">
-            <div class="consultation-meta"><strong><%= Html.escape(x.fechaConsulta()) %></strong><span><%= Html.escape(x.odontologo()) %> · <%= Html.escape(x.especialidad().isBlank() ? "Sin especialidad indicada" : x.especialidad()) %></span></div>
-            <div class="consultation-body">
-              <div><span>Motivo</span><p><%= Html.escape(x.motivo().isBlank() ? "—" : x.motivo()) %></p></div>
-              <div><span>Diagnóstico</span><p><%= Html.escape(x.diagnostico().isBlank() ? "—" : x.diagnostico()) %></p></div>
-              <div><span>Tratamiento</span><p><%= Html.escape(x.tratamiento().isBlank() ? "—" : x.tratamiento()) %></p></div>
-              <div><span>Recomendaciones</span><p><%= Html.escape(x.recomendaciones().isBlank() ? "—" : x.recomendaciones()) %></p></div>
-            </div>
-            <a class="btn tiny secondary" href="<%= Html.escape(base) %>/atencion?id=<%= x.idCita() %>">Ver atención</a>
-          </article>
-        <% } %>
-        <% if (view.consultas().isEmpty()) { %><p class="empty-note">Todavía no existen atenciones clínicas registradas para este paciente.</p><% } %>
-      </div>
-    </section>
+  <a class="<%= "antecedentes".equals(historyTab) ? "active" : "" %>"
+     href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&tab=antecedentes">
+    Antecedentes y alergias
+    <span><%= view.antecedentes().size() + view.alergias().size() %></span>
+  </a>
 
-    <section class="patient-section patient-section-wide clinical-consultations">
+  <a class="<%= "consultas".equals(historyTab) ? "active" : "" %>"
+     href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&tab=consultas">
+    Consultas
+    <span><%= view.consultas().size() %></span>
+  </a>
+
+  <a class="<%= "recetas".equals(historyTab) ? "active" : "" %>"
+     href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&tab=recetas">
+    Recetas
+    <span><%= patientRecipes == null ? 0 : patientRecipes.size() %></span>
+  </a>
+</nav>
+
+<% if ("resumen".equals(historyTab)) {
+   String generalNote = h == null || h.observacionesGenerales() == null
+       ? ""
+       : h.observacionesGenerales().trim();
+%>
+<section class="clinical-summary-dashboard">
+  <div class="clinical-summary-metrics">
+    <article>
+      <span>Estado de historia</span>
+      <strong><%= h == null ? "SIN ABRIR" : Html.escape(h.estado()) %></strong>
+      <small><%= h == null ? "Sin apertura registrada" : "Apertura: " + Html.escape(h.fechaApertura()) %></small>
+    </article>
+
+    <article class="<%= view.alergias().isEmpty() ? "" : "clinical-metric-alert" %>">
+      <span>Alergias</span>
+      <strong><%= view.alergias().size() %></strong>
+      <small><%= view.alergias().isEmpty() ? "Sin alergias registradas" : "Revisar antes de atender" %></small>
+    </article>
+
+    <article>
+      <span>Antecedentes</span>
+      <strong><%= view.antecedentes().size() %></strong>
+      <small>Registros médicos asociados</small>
+    </article>
+
+    <article>
+      <span>Consultas</span>
+      <strong><%= view.consultas().size() %></strong>
+      <small>Atenciones clínicas registradas</small>
+    </article>
+
+    <article>
+      <span>Recetas</span>
+      <strong><%= patientRecipes == null ? 0 : patientRecipes.size() %></strong>
+      <small>Prescripciones emitidas</small>
+    </article>
+  </div>
+
+  <div class="clinical-summary-grid">
+    <section class="patient-section clinical-tab-card clinical-alert-summary">
       <div class="section-title">
-        <div><span>TRATAMIENTO</span><h3>Recetas médicas</h3></div>
-        <span><%= patientRecipes == null ? 0 : patientRecipes.size() %> registros</span>
+        <div>
+          <span>SEGURIDAD CLÍNICA</span>
+          <h3>Alertas importantes</h3>
+        </div>
+        <a class="btn tiny secondary"
+           href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&tab=antecedentes">
+          Ver antecedentes
+        </a>
       </div>
-      <div class="consultation-timeline">
-        <% if (patientRecipes != null) for (RecetaResumen r : patientRecipes) { %>
-          <article class="consultation-entry">
-            <div class="consultation-meta">
-              <strong><%= Html.escape(r.fecha()) %></strong>
-              <span>Prescripción registrada</span>
+
+      <% if (view.alergias().isEmpty()) { %>
+        <div class="clinical-clear-state">
+          <strong>Sin alergias registradas</strong>
+          <span>No existen alertas de alergia documentadas en la historia.</span>
+        </div>
+      <% } else { %>
+        <div class="clinical-alert-list">
+          <% int allergyLimit = Math.min(3, view.alergias().size());
+             for (int i = 0; i < allergyLimit; i++) {
+               AlergiaClinicaDetalle allergy = view.alergias().get(i); %>
+            <div>
+              <strong><%= Html.escape(allergy.alergeno()) %></strong>
+              <span><%= Html.escape(allergy.reaccion().isBlank() ? "Reacción no especificada" : allergy.reaccion()) %></span>
             </div>
-            <div class="consultation-body">
-              <div><span>Medicamentos</span><p><%= Html.escape(r.medicamentos()) %></p></div>
-              <div><span>Indicaciones</span><p><%= Html.escape(r.indicaciones()) %></p></div>
-            </div>
-            <a class="btn tiny secondary"
-               href="<%= Html.escape(base) %>/modulo/recetas/ver?id=<%= r.idReceta() %>&paciente=<%= p.id() %>">
-              Ver receta
-            </a>
-          </article>
-        <% } %>
-        <% if (patientRecipes == null || patientRecipes.isEmpty()) { %>
-          <p class="empty-note">Todavía no existen recetas médicas registradas para este paciente.</p>
-        <% } %>
+          <% } %>
+
+          <% if (view.alergias().size() > 3) { %>
+            <small>+ <%= view.alergias().size() - 3 %> alergia(s) adicional(es) en Antecedentes y alergias.</small>
+          <% } %>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="patient-section clinical-tab-card clinical-general-note-card">
+      <div class="section-title">
+        <div>
+          <span>NOTA GENERAL</span>
+          <h3>Nota clínica transversal</h3>
+        </div>
+        <button class="btn tiny secondary"
+                type="button"
+                data-open-clinical-dialog="general-note">
+          <%= generalNote.isBlank() ? "+ Agregar nota" : "Editar nota" %>
+        </button>
       </div>
+
+      <% if (generalNote.isBlank()) { %>
+        <div class="clinical-clear-state">
+          <strong>Sin nota clínica general</strong>
+          <span>Úsala solo para información transversal que deba permanecer visible entre atenciones.</span>
+        </div>
+      <% } else { %>
+        <p class="clinical-general-note"><%= Html.escape(generalNote) %></p>
+        <small class="clinical-note-help">
+          Esta nota no reemplaza antecedentes, alergias, diagnósticos ni la evolución registrada en cada consulta.
+        </small>
+      <% } %>
     </section>
   </div>
 </section>
+
+<dialog class="crud-card crud-dialog clinical-dialog clinical-general-note-dialog"
+        data-clinical-dialog="general-note">
+  <div class="crud-head clinical-modal-head">
+    <div>
+      <span class="clinical-dialog-eyebrow">NOTA CLÍNICA GENERAL</span>
+      <h2>Editar nota transversal</h2>
+      <p>Registra solo información que deba mantenerse visible entre diferentes atenciones del paciente.</p>
+    </div>
+    <button class="btn secondary" type="button" data-close-clinical-dialog>Cerrar</button>
+  </div>
+
+  <form action="<%= Html.escape(base) %>/historias"
+        method="post"
+        class="crud-form">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="notas">
+    <input type="hidden" name="id_paciente" value="<%= p.id() %>">
+
+    <label class="span-2">Nota clínica general
+      <textarea name="observaciones_generales"
+                maxlength="5000"
+                rows="6"
+                placeholder="Ej. Paciente con ansiedad marcada durante procedimientos."><%= Html.escape(generalNote) %></textarea>
+      <small>No dupliques aquí alergias, antecedentes o información propia de una consulta.</small>
+    </label>
+
+    <div class="form-actions">
+      <button class="btn secondary" type="button" data-close-clinical-dialog>Cancelar</button>
+      <button class="btn primary" type="submit">Guardar nota</button>
+    </div>
+  </form>
+</dialog>
 <% } %>
-<p class="read-only">Los antecedentes y alergias se agregan sin eliminación física para conservar la trazabilidad clínica del paciente.</p>
+
+<% if ("antecedentes".equals(historyTab)) { %>
+<div class="clinical-two-column">
+  <section class="patient-section clinical-tab-card">
+    <div class="section-title">
+      <div>
+        <span>SEGURIDAD</span>
+        <h3>Alergias</h3>
+      </div>
+      <button class="btn tiny primary" type="button" data-open-clinical-dialog="allergy">
+        + Agregar
+      </button>
+    </div>
+
+    <div class="stack-list clinical-stack clinical-stack-scroll">
+      <% for (AlergiaClinicaDetalle x : view.alergias()) { %>
+        <div class="stack-item allergy-item">
+          <strong><%= Html.escape(x.alergeno()) %></strong>
+          <span><%= Html.escape(x.reaccion().isBlank() ? "Reacción no especificada" : x.reaccion()) %></span>
+          <small><%= Html.escape(x.observaciones()) %> · <%= Html.escape(x.fechaRegistro()) %></small>
+        </div>
+      <% } %>
+
+      <% if (view.alergias().isEmpty()) { %>
+        <p class="empty-note">No hay alergias registradas.</p>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="patient-section clinical-tab-card">
+    <div class="section-title">
+      <div>
+        <span>ANTECEDENTES</span>
+        <h3>Antecedentes médicos</h3>
+      </div>
+      <button class="btn tiny primary" type="button" data-open-clinical-dialog="history">
+        + Agregar
+      </button>
+    </div>
+
+    <div class="stack-list clinical-stack clinical-stack-scroll">
+      <% for (AntecedenteClinicoDetalle x : view.antecedentes()) { %>
+        <div class="stack-item">
+          <strong><%= Html.escape(x.tipo()) %></strong>
+          <span><%= Html.escape(x.descripcion()) %></span>
+          <small><%= Html.escape(x.observaciones()) %> · <%= Html.escape(x.fechaRegistro()) %></small>
+        </div>
+      <% } %>
+
+      <% if (view.antecedentes().isEmpty()) { %>
+        <p class="empty-note">No hay antecedentes registrados.</p>
+      <% } %>
+    </div>
+  </section>
+</div>
+
+<dialog class="crud-card crud-dialog clinical-dialog"
+        data-clinical-dialog="allergy">
+  <div class="crud-head">
+    <div>
+      <span class="clinical-dialog-eyebrow">SEGURIDAD CLÍNICA</span>
+      <h2>Agregar alergia</h2>
+      <p>El registro se incorpora a la historia longitudinal del paciente.</p>
+    </div>
+    <button class="btn secondary" type="button" data-close-clinical-dialog>Cerrar</button>
+  </div>
+
+  <form action="<%= Html.escape(base) %>/historias"
+        method="post"
+        class="crud-form">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="alergia">
+    <input type="hidden" name="id_paciente" value="<%= p.id() %>">
+
+    <label class="span-2">Alérgeno
+      <input name="alergeno" maxlength="150" required placeholder="Ej. Penicilina">
+    </label>
+
+    <label class="span-2">Reacción
+      <input name="reaccion" maxlength="255" placeholder="Ej. Urticaria">
+    </label>
+
+    <label class="span-2">Observaciones
+      <textarea name="observaciones" maxlength="2000" rows="3" placeholder="Información adicional"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button class="btn secondary" type="button" data-close-clinical-dialog>Cancelar</button>
+      <button class="btn primary" type="submit">Agregar alergia</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="crud-card crud-dialog clinical-dialog"
+        data-clinical-dialog="history">
+  <div class="crud-head">
+    <div>
+      <span class="clinical-dialog-eyebrow">ANTECEDENTES</span>
+      <h2>Agregar antecedente</h2>
+      <p>El registro quedará asociado permanentemente a la historia del paciente.</p>
+    </div>
+    <button class="btn secondary" type="button" data-close-clinical-dialog>Cerrar</button>
+  </div>
+
+  <form action="<%= Html.escape(base) %>/historias"
+        method="post"
+        class="crud-form">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="antecedente">
+    <input type="hidden" name="id_paciente" value="<%= p.id() %>">
+
+    <label class="span-2">Tipo
+      <input name="tipo"
+             maxlength="100"
+             required
+             placeholder="Médico, familiar, quirúrgico...">
+    </label>
+
+    <label class="span-2">Descripción
+      <input name="descripcion"
+             maxlength="255"
+             required
+             placeholder="Descripción del antecedente">
+    </label>
+
+    <label class="span-2">Observaciones
+      <textarea name="observaciones"
+                maxlength="2000"
+                rows="3"
+                placeholder="Información adicional"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button class="btn secondary" type="button" data-close-clinical-dialog>Cancelar</button>
+      <button class="btn primary" type="submit">Agregar antecedente</button>
+    </div>
+  </form>
+</dialog>
+<% } %>
+
+<% if ("consultas".equals(historyTab)) { %>
+<section class="patient-section clinical-tab-card">
+  <div class="section-title">
+    <div>
+      <span>EVOLUCIÓN</span>
+      <h3>Consultas clínicas</h3>
+    </div>
+    <span><%= view.consultas().size() %> atenciones</span>
+  </div>
+
+  <div class="consultation-timeline clinical-timeline-scroll">
+    <% for (ConsultaHistorialDetalle x : view.consultas()) { %>
+      <article class="consultation-entry">
+        <div class="consultation-meta">
+          <strong><%= Html.escape(x.fechaConsulta()) %></strong>
+          <span>
+            <%= Html.escape(x.odontologo()) %>
+            ·
+            <%= Html.escape(x.especialidad().isBlank() ? "Sin especialidad indicada" : x.especialidad()) %>
+          </span>
+        </div>
+
+        <div class="consultation-body">
+          <div>
+            <span>Motivo</span>
+            <p><%= Html.escape(x.motivo().isBlank() ? "—" : x.motivo()) %></p>
+          </div>
+          <div>
+            <span>Diagnóstico</span>
+            <p><%= Html.escape(x.diagnostico().isBlank() ? "—" : x.diagnostico()) %></p>
+          </div>
+          <div>
+            <span>Tratamiento</span>
+            <p><%= Html.escape(x.tratamiento().isBlank() ? "—" : x.tratamiento()) %></p>
+          </div>
+          <div>
+            <span>Recomendaciones</span>
+            <p><%= Html.escape(x.recomendaciones().isBlank() ? "—" : x.recomendaciones()) %></p>
+          </div>
+        </div>
+
+        <a class="btn tiny secondary"
+           href="<%= Html.escape(base) %>/atencion?id=<%= x.idCita() %>">
+          Ver atención
+        </a>
+      </article>
+    <% } %>
+
+    <% if (view.consultas().isEmpty()) { %>
+      <p class="empty-note">
+        Todavía no existen atenciones clínicas registradas para este paciente.
+      </p>
+    <% } %>
+  </div>
+</section>
+<% } %>
+
+<% if ("recetas".equals(historyTab)) { %>
+<section class="patient-section clinical-tab-card">
+  <div class="section-title">
+    <div>
+      <span>TRATAMIENTO</span>
+      <h3>Recetas médicas</h3>
+    </div>
+    <button class="btn tiny primary" type="button" data-open-clinical-dialog="recipe">
+      + Emitir receta
+    </button>
+  </div>
+
+  <div class="consultation-timeline clinical-timeline-scroll">
+    <% if (patientRecipes != null) for (RecetaResumen r : patientRecipes) { %>
+      <article class="consultation-entry">
+        <div class="consultation-meta">
+          <strong><%= Html.escape(r.fecha()) %></strong>
+          <span>Receta #<%= r.idReceta() %></span>
+        </div>
+
+        <div class="consultation-body">
+          <div>
+            <span>Medicamentos</span>
+            <p><%= Html.escape(r.medicamentos()) %></p>
+          </div>
+          <div>
+            <span>Indicaciones</span>
+            <p><%= Html.escape(r.indicaciones()) %></p>
+          </div>
+        </div>
+
+        <%
+          String recipePdfUrl = base + "/modulo/recetas/pdf?id=" + r.idReceta();
+          String recipeWhatsappMessage =
+              "Hola " + p.nombreCompleto()
+              + ". Le compartimos su receta médica N.° " + r.idReceta()
+              + " emitida el " + r.fecha()
+              + ". El PDF de la receta ha sido generado desde OdontoSync.";
+          String recipeWhatsappUrl = patientWhatsappNumber.isBlank()
+              ? ""
+              : "https://wa.me/" + patientWhatsappNumber + "?text="
+                  + URLEncoder.encode(recipeWhatsappMessage, StandardCharsets.UTF_8).replace("+", "%20");
+        %>
+        <button class="btn tiny secondary"
+                type="button"
+                data-open-recipe-view
+                data-recipe-id="<%= r.idReceta() %>"
+                data-recipe-date="<%= Html.escape(r.fecha()) %>"
+                data-recipe-medications="<%= Html.escape(r.medicamentos()) %>"
+                data-recipe-indications="<%= Html.escape(r.indicaciones()) %>"
+                data-recipe-pdf="<%= Html.escape(recipePdfUrl) %>"
+                data-recipe-whatsapp="<%= Html.escape(recipeWhatsappUrl) %>">
+          Ver receta
+        </button>
+      </article>
+    <% } %>
+
+    <% if (patientRecipes == null || patientRecipes.isEmpty()) { %>
+      <p class="empty-note">
+        Todavía no existen recetas médicas registradas para este paciente.
+      </p>
+    <% } %>
+  </div>
+</section>
+
+
+<dialog class="crud-card crud-dialog clinical-dialog clinical-recipe-view-dialog"
+        data-recipe-view-dialog>
+  <div class="crud-head clinical-modal-head">
+    <div>
+      <span class="clinical-dialog-eyebrow">RECETA EMITIDA</span>
+      <h2>Receta #<span data-recipe-view-id></span></h2>
+      <p>
+        Emitida para <strong><%= Html.escape(p.nombreCompleto()) %></strong>
+        · <span data-recipe-view-date></span>
+      </p>
+    </div>
+    <button class="btn secondary" type="button" data-close-recipe-view>Cerrar</button>
+  </div>
+
+  <div class="clinical-recipe-detail-grid">
+    <section>
+      <span>Medicamentos</span>
+      <p data-recipe-view-medications></p>
+    </section>
+    <section>
+      <span>Indicaciones</span>
+      <p data-recipe-view-indications></p>
+    </section>
+  </div>
+
+  <div class="clinical-modal-footer clinical-recipe-actions">
+    <span>La receta se consulta sin abandonar la historia clínica del paciente.</span>
+    <div>
+      <a class="btn secondary" href="#" data-recipe-view-pdf>Descargar PDF</a>
+      <a class="btn primary" href="#" data-recipe-view-whatsapp>WhatsApp</a>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="crud-card crud-dialog clinical-dialog clinical-recipe-dialog"
+        data-clinical-dialog="recipe">
+  <div class="crud-head">
+    <div>
+      <span class="clinical-dialog-eyebrow">RECETA MÉDICA</span>
+      <h2>Emitir receta</h2>
+      <p>
+        La receta quedará asociada a
+        <strong><%= Html.escape(p.nombreCompleto()) %></strong>,
+        a tu cuenta de odontólogo y a esta clínica.
+      </p>
+    </div>
+    <button class="btn secondary" type="button" data-close-clinical-dialog>Cerrar</button>
+  </div>
+
+  <form action="<%= Html.escape(base) %>/historias"
+        method="post"
+        class="crud-form">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="receta">
+    <input type="hidden" name="id_paciente" value="<%= p.id() %>">
+
+    <label class="span-2">Medicamentos
+      <textarea name="medicamentos"
+                maxlength="5000"
+                rows="5"
+                required
+                placeholder="Ejemplo: Ibuprofeno 400 mg, 1 tableta cada 8 horas por 3 días."></textarea>
+    </label>
+
+    <label class="span-2">Indicaciones
+      <textarea name="indicaciones"
+                maxlength="5000"
+                rows="5"
+                required
+                placeholder="Cuidados, duración, restricciones y otras indicaciones para el paciente."></textarea>
+    </label>
+
+    <div class="clinical-integrity-tip span-2">
+      <strong>TRAZABILIDAD</strong>
+      <span>
+        La receta conservará paciente, clínica y odontólogo emisor. El PDF y WhatsApp seguirán disponibles desde el detalle individual.
+      </span>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn secondary" type="button" data-close-clinical-dialog>Cancelar</button>
+      <button class="btn primary" type="submit">Emitir receta</button>
+    </div>
+  </form>
+</dialog>
+<% } %>
+
+<p class="read-only clinical-scope-note">
+  Los antecedentes, alergias, consultas y recetas forman parte de la historia longitudinal del paciente y mantienen su trazabilidad.
+</p>
+
+<script src="<%= Html.escape(base) %>/js/historias-ui.js?v=20261120-issue29-ux2" defer></script>
+<% } %>
+
 <%@ include file="layout-bottom.jspf" %>

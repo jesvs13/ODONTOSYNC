@@ -10,12 +10,17 @@ PacienteDetalle recipePatient = (PacienteDetalle) request.getAttribute("recipePa
 
 Long returnPatientId = (Long) request.getAttribute("returnPatientId");
 long patientId = returnPatientId == null ? 0L : returnPatientId.longValue();
-String historyHref = base + "/historias" + (patientId > 0 ? "?paciente=" + patientId : "");
+
+String historyHref = base + "/historias"
+    + (patientId > 0 ? "?paciente=" + patientId + "&tab=recetas" : "");
 
 String patientName = recipePatient != null
     ? recipePatient.nombreCompleto()
     : (recipe == null ? "" : recipe.paciente());
-String initial = patientName.isBlank() ? "P" : patientName.substring(0, 1).toUpperCase();
+
+String initial = patientName.isBlank()
+    ? "P"
+    : patientName.substring(0, 1).toUpperCase();
 
 String patientPhone = recipePatient == null || recipePatient.telefono() == null
     ? ""
@@ -38,7 +43,10 @@ String whatsappMessage = recipe == null
 String whatsappHref = whatsappNumber.isBlank()
     ? ""
     : "https://wa.me/" + whatsappNumber + "?text="
-        + URLEncoder.encode(whatsappMessage, StandardCharsets.UTF_8).replace("+", "%20");
+        + URLEncoder.encode(
+            whatsappMessage,
+            StandardCharsets.UTF_8
+        ).replace("+", "%20");
 
 String pdfHref = recipe == null
     ? ""
@@ -48,7 +56,7 @@ String pdfHref = recipe == null
 <div class="page-heading">
   <div>
     <h1>Receta médica</h1>
-    <p>Consulta el detalle de la prescripción registrada para el paciente.</p>
+    <p>Consulta el detalle de la prescripción registrada dentro de la historia clínica del paciente.</p>
   </div>
 </div>
 
@@ -56,6 +64,7 @@ String pdfHref = recipe == null
 <section class="clinical-context-card">
   <div class="clinical-patient-head">
     <div class="patient-avatar"><%= Html.escape(initial) %></div>
+
     <div>
       <span class="eyebrow">PACIENTE</span>
       <h2><%= Html.escape(patientName) %></h2>
@@ -67,30 +76,24 @@ String pdfHref = recipe == null
         Volver a Historia clínica
       </a>
 
-      <a class="btn secondary" href="<%= Html.escape(base) %>/modulo/recetas">
-        Ir a Recetas
-      </a>
-
       <a class="btn primary" href="<%= Html.escape(pdfHref) %>">
         Descargar PDF
       </a>
 
       <% if (!whatsappHref.isBlank()) { %>
-        <a
-          id="whatsappRecipe"
-          class="btn secondary"
-          href="<%= Html.escape(whatsappHref) %>"
-          target="_blank"
-          rel="noopener"
-          data-pdf-url="<%= Html.escape(pdfHref) %>">
+        <a id="whatsappRecipe"
+           class="btn secondary"
+           href="<%= Html.escape(whatsappHref) %>"
+           target="_blank"
+           rel="noopener"
+           data-pdf-url="<%= Html.escape(pdfHref) %>">
           WhatsApp
         </a>
       <% } else { %>
-        <button
-          class="btn secondary"
-          type="button"
-          disabled
-          title="El paciente no tiene un número móvil válido registrado en su ficha.">
+        <button class="btn secondary"
+                type="button"
+                disabled
+                title="El paciente no tiene un número móvil válido registrado en su ficha.">
           WhatsApp
         </button>
       <% } %>

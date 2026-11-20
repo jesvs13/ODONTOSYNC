@@ -37,6 +37,7 @@ public final class RecetaDetalleServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
         throws ServletException, IOException {
+
         User current = currentDentist(req, res);
         if (current == null) return;
 
@@ -44,17 +45,21 @@ public final class RecetaDetalleServlet extends HttpServlet {
             long recipeId = parseId(req.getParameter("id"));
             RecetaResumen recipe = service.detail(current, recipeId);
 
-            PacienteDetalle patient = pacienteService.findVisible(current, recipe.idPaciente())
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "El paciente de esta receta no está disponible para tu perfil."
-                ));
+            PacienteDetalle patient = pacienteService.findVisible(
+                current,
+                recipe.idPaciente()
+            ).orElseThrow(() -> new IllegalArgumentException(
+                "El paciente de esta receta no está disponible para tu perfil."
+            ));
 
             req.setAttribute("user", current);
-            req.setAttribute("active", "recetas");
+            req.setAttribute("active", "historias");
             req.setAttribute("recipe", recipe);
             req.setAttribute("recipePatient", patient);
             req.setAttribute("returnPatientId", recipe.idPaciente());
-            req.getRequestDispatcher("/WEB-INF/views/receta-detalle.jsp").forward(req, res);
+            req.getRequestDispatcher(
+                "/WEB-INF/views/receta-detalle.jsp"
+            ).forward(req, res);
         } catch (IllegalArgumentException ex) {
             res.sendError(HttpServletResponse.SC_NOT_FOUND, ex.getMessage());
         } catch (SQLException ex) {
@@ -68,6 +73,7 @@ public final class RecetaDetalleServlet extends HttpServlet {
 
     private User currentDentist(HttpServletRequest req, HttpServletResponse res)
         throws IOException {
+
         HttpSession session = req.getSession(false);
         User user = session == null ? null : (User) session.getAttribute("user");
 
@@ -94,7 +100,10 @@ public final class RecetaDetalleServlet extends HttpServlet {
             if (id <= 0) throw new NumberFormatException();
             return id;
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException("Selecciona una receta válida.", ex);
+            throw new IllegalArgumentException(
+                "Selecciona una receta válida.",
+                ex
+            );
         }
     }
 }
