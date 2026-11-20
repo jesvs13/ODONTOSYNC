@@ -31,9 +31,7 @@ public final class RecetaService {
 
     public RecetaResumen detail(User current, long recipeId) throws SQLException {
         requireDentist(current);
-        if (recipeId <= 0) {
-            throw new IllegalArgumentException("Selecciona una receta válida.");
-        }
+        requirePositiveId(recipeId, "Selecciona una receta válida.");
 
         RecetaResumen recipe = dao.findById(current.clinicId(), current.id(), recipeId);
         if (recipe == null) {
@@ -51,9 +49,7 @@ public final class RecetaService {
 
     public List<RecetaResumen> historyForPatient(User current, long patientId) throws SQLException {
         requireDentist(current);
-        if (patientId <= 0) {
-            throw new IllegalArgumentException("Selecciona un paciente válido.");
-        }
+        requirePositiveId(patientId, "Selecciona un paciente válido.");
         return dao.findByPatient(current.clinicId(), current.id(), patientId);
     }
 
@@ -64,9 +60,7 @@ public final class RecetaService {
         String indicationsRaw
     ) throws SQLException {
         requireDentist(current);
-        if (patientId <= 0) {
-            throw new IllegalArgumentException("Selecciona un paciente válido.");
-        }
+        requirePositiveId(patientId, "Selecciona un paciente válido.");
 
         String medications = required(
             medicationsRaw, MAX_MEDICATIONS, "Los medicamentos"
@@ -97,13 +91,23 @@ public final class RecetaService {
         }
     }
 
+    private void requirePositiveId(long id, String message) {
+        if (id <= 0) {
+            throw new IllegalArgumentException(message);
+        }
+    }
+
     private String required(String raw, int max, String label) {
         String value = StringUtils.trimToEmpty(raw);
         if (value.length() < 3) {
-            throw new IllegalArgumentException(label + " deben contener al menos 3 caracteres.");
+            throw new IllegalArgumentException(
+                label + " deben contener al menos 3 caracteres."
+            );
         }
         if (value.length() > max) {
-            throw new IllegalArgumentException(label + " superan el máximo de " + max + " caracteres.");
+            throw new IllegalArgumentException(
+                label + " superan el máximo de " + max + " caracteres."
+            );
         }
         return value;
     }

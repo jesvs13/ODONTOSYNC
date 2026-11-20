@@ -13,6 +13,7 @@ import pe.odontosync.model.RecetaResumen;
 
 /** Acceso JDBC a recetas con consulta y registro seguro por clínica y odontólogo. */
 public final class JdbcRecetaDAO implements RecetaCrudDAO {
+    private static final int QUERY_TIMEOUT_SECONDS = 8;
     private static final String FIND_BY_DENTIST = """
         SELECT r.id_receta,
                r.id_paciente,
@@ -148,20 +149,13 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         List<RecetaResumen> items = new ArrayList<>();
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(FIND_BY_DENTIST)) {
-            ps.setQueryTimeout(8);
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, clinicId);
             ps.setLong(2, clinicId);
             ps.setLong(3, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    items.add(new RecetaResumen(
-                        rs.getLong("id_receta"),
-                        rs.getLong("id_paciente"),
-                        rs.getString("fecha"),
-                        rs.getString("paciente"),
-                        rs.getString("medicamentos"),
-                        rs.getString("indicaciones")
-                    ));
+                    items.add(mapRecipe(rs));
                 }
             }
         }
@@ -174,7 +168,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         throws SQLException {
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(FIND_BY_ID)) {
-            ps.setQueryTimeout(8);
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, recipeId);
             ps.setLong(2, clinicId);
             ps.setLong(3, dentistUserId);
@@ -182,14 +176,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
                 if (!rs.next()) {
                     return null;
                 }
-                return new RecetaResumen(
-                    rs.getLong("id_receta"),
-                    rs.getLong("id_paciente"),
-                    rs.getString("fecha"),
-                    rs.getString("paciente"),
-                    rs.getString("medicamentos"),
-                    rs.getString("indicaciones")
-                );
+                return mapRecipe(rs);
             }
         }
     }
@@ -201,20 +188,13 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         List<RecetaResumen> items = new ArrayList<>();
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(FIND_BY_PATIENT)) {
-            ps.setQueryTimeout(8);
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, clinicId);
             ps.setLong(2, patientId);
             ps.setLong(3, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    items.add(new RecetaResumen(
-                        rs.getLong("id_receta"),
-                        rs.getLong("id_paciente"),
-                        rs.getString("fecha"),
-                        rs.getString("paciente"),
-                        rs.getString("medicamentos"),
-                        rs.getString("indicaciones")
-                    ));
+                    items.add(mapRecipe(rs));
                 }
             }
         }
@@ -227,7 +207,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         List<PacienteOpcion> items = new ArrayList<>();
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(FIND_PATIENTS)) {
-            ps.setQueryTimeout(8);
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, clinicId);
             ps.setLong(2, clinicId);
             ps.setLong(3, clinicId);
@@ -264,7 +244,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
                 try (PreparedStatement ps = cn.prepareStatement(
                     INSERT_RECIPE, Statement.RETURN_GENERATED_KEYS
                 )) {
-                    ps.setQueryTimeout(8);
+                    ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
                     ps.setLong(1, patientId);
                     ps.setLong(2, dentistId);
                     ps.setString(3, medications);
@@ -291,10 +271,21 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         }
     }
 
+    private RecetaResumen mapRecipe(ResultSet rs) throws SQLException {
+        return new RecetaResumen(
+            rs.getLong("id_receta"),
+            rs.getLong("id_paciente"),
+            rs.getString("fecha"),
+            rs.getString("paciente"),
+            rs.getString("medicamentos"),
+            rs.getString("indicaciones")
+        );
+    }
+
     private long findDentistId(Connection cn, long clinicId, long dentistUserId)
         throws SQLException {
         try (PreparedStatement ps = cn.prepareStatement(FIND_DENTIST)) {
-            ps.setQueryTimeout(8);
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, clinicId);
             ps.setLong(2, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -311,7 +302,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
     private void validatePatient(Connection cn, long clinicId, long patientId, long dentistId)
         throws SQLException {
         try (PreparedStatement ps = cn.prepareStatement(VALIDATE_PATIENT)) {
-            ps.setQueryTimeout(8);
+            ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, patientId);
             ps.setLong(2, clinicId);
             ps.setLong(3, clinicId);
