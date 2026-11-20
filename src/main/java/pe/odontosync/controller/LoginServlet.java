@@ -14,10 +14,9 @@ import org.slf4j.LoggerFactory;
 import pe.odontosync.User;
 import pe.odontosync.dao.JdbcUsuarioDAO;
 import pe.odontosync.mail.SmtpLoginOtpMailer;
-import pe.odontosync.model.LoginOtpChallenge;
 import pe.odontosync.security.AuditLog;
-import pe.odontosync.security.CsrfTokens;
 import pe.odontosync.security.LoginAttemptGuard;
+import pe.odontosync.security.LoginSessions;
 import pe.odontosync.service.AuthService;
 import pe.odontosync.service.LoginOtpDeliveryException;
 import pe.odontosync.service.LoginOtpService;
@@ -40,8 +39,7 @@ public final class LoginServlet extends HttpServlet {
             res.sendRedirect(req.getContextPath() + "/panel");
             return;
         }
-        if (session != null
-            && session.getAttribute("loginOtpChallenge") instanceof LoginOtpChallenge) {
+        if (LoginSessions.pending(session) != null) {
             res.sendRedirect(req.getContextPath() + "/verificar-login");
             return;
         }
@@ -57,33 +55,14 @@ public final class LoginServlet extends HttpServlet {
         );
         String submitted = req.getParameter("clave");
 
-        if (StringUtils.isBlank(email) || email.length() > 150
-            || StringUtils.isEmpty(submitted) || submitted.length() > 1000) {
+        if (invalidCredentialsInput(email, submitted)) {
             AuditLog.loginFailure(email, req.getRemoteAddr());
             error(req, res, 400, "Ingresa un correo y contraseña válidos.");
             return;
         }
 
-        String attemptKey;
-        try {
-            attemptKey = ATTEMPTS.key(email, req.getRemoteAddr());
-        } catch (IllegalArgumentException ex) {
-            AuditLog.loginFailure(email, req.getRemoteAddr());
-            error(req, res, 400, "Datos de acceso no válidos.");
-            return;
-        }
-
-        if (!ATTEMPTS.isAllowed(attemptKey)) {
-            AuditLog.loginBlocked(email, req.getRemoteAddr());
-            res.setHeader("Retry-After", "300");
-            error(
-                req,
-                res,
-                429,
-                "Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar."
-            );
-            return;
-        }
+        String attemptKey = attemptKey(req, res, email);
+        if (attemptKey == null) return;
 
         char[] password = submitted.toCharArray();
         try {
@@ -100,16 +79,9 @@ public final class LoginServlet extends HttpServlet {
                 return;
             }
 
-            LoginOtpChallenge challenge = otpService.issue(user, email);
+            var challenge = otpService.issue(user, email);
             ATTEMPTS.recordSuccess(attemptKey);
-
-            HttpSession previous = req.getSession(false);
-            if (previous != null) previous.invalidate();
-
-            HttpSession session = req.getSession(true);
-            session.setMaxInactiveInterval(10 * 60);
-            session.setAttribute("loginOtpChallenge", challenge);
-            CsrfTokens.ensure(session);
+            LoginSessions.beginSecondFactor(req, challenge);
 
             AuditLog.loginSecondFactorIssued(user, req.getRemoteAddr());
             res.sendRedirect(req.getContextPath() + "/verificar-login");
@@ -127,6 +99,41 @@ public final class LoginServlet extends HttpServlet {
         } finally {
             Arrays.fill(password, '\0');
         }
+    }
+
+    private String attemptKey(
+        HttpServletRequest req,
+        HttpServletResponse res,
+        String email
+    ) throws ServletException, IOException {
+        String key;
+        try {
+            key = ATTEMPTS.key(email, req.getRemoteAddr());
+        } catch (IllegalArgumentException ex) {
+            AuditLog.loginFailure(email, req.getRemoteAddr());
+            error(req, res, 400, "Datos de acceso no válidos.");
+            return null;
+        }
+
+        if (!ATTEMPTS.isAllowed(key)) {
+            AuditLog.loginBlocked(email, req.getRemoteAddr());
+            res.setHeader("Retry-After", "300");
+            error(
+                req,
+                res,
+                429,
+                "Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar."
+            );
+            return null;
+        }
+        return key;
+    }
+
+    private boolean invalidCredentialsInput(String email, String password) {
+        return StringUtils.isBlank(email)
+            || email.length() > 150
+            || StringUtils.isEmpty(password)
+            || password.length() > 1000;
     }
 
     private void error(

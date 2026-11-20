@@ -18,6 +18,7 @@ import pe.odontosync.model.LoginOtpStatus;
 import pe.odontosync.model.LoginOtpVerification;
 import pe.odontosync.security.AuditLog;
 import pe.odontosync.security.CsrfTokens;
+import pe.odontosync.security.LoginSessions;
 import pe.odontosync.service.AuthService;
 import pe.odontosync.service.LoginOtpDeliveryException;
 import pe.odontosync.service.LoginOtpService;
@@ -40,17 +41,12 @@ public final class LoginOtpServlet extends HttpServlet {
             return;
         }
 
-        LoginOtpChallenge challenge = pending(session);
+        LoginOtpChallenge challenge = LoginSessions.pending(session);
         if (challenge == null) {
             res.sendRedirect(req.getContextPath() + "/login");
             return;
         }
-
-        if (otpService.isExpired(challenge) || otpService.isLocked(challenge)) {
-            session.invalidate();
-            res.sendRedirect(req.getContextPath() + "/login?verificacion=expirada");
-            return;
-        }
+        if (!challengeUsable(req, res, session, challenge)) return;
 
         render(req, res, session, challenge, null, null);
     }
@@ -60,7 +56,7 @@ public final class LoginOtpServlet extends HttpServlet {
         throws ServletException, IOException {
         req.setCharacterEncoding("UTF-8");
         HttpSession session = req.getSession(false);
-        LoginOtpChallenge challenge = pending(session);
+        LoginOtpChallenge challenge = LoginSessions.pending(session);
 
         if (challenge == null) {
             res.sendRedirect(req.getContextPath() + "/login");
@@ -78,38 +74,57 @@ public final class LoginOtpServlet extends HttpServlet {
 
         LoginOtpVerification verification =
             otpService.verify(challenge, req.getParameter("codigo"));
+        handleVerification(req, res, session, verification);
+    }
+
+    private void handleVerification(
+        HttpServletRequest req,
+        HttpServletResponse res,
+        HttpSession session,
+        LoginOtpVerification verification
+    ) throws ServletException, IOException {
+        LoginOtpChallenge challenge = verification.challenge();
 
         if (verification.status() == LoginOtpStatus.VERIFIED) {
-            complete(req, res, session, challenge);
+            complete(req, res, challenge);
             return;
         }
-
         if (verification.status() == LoginOtpStatus.EXPIRED) {
-            session.invalidate();
-            res.sendRedirect(req.getContextPath() + "/login?verificacion=expirada");
+            expire(req, res, "expirada");
             return;
         }
-
         if (verification.status() == LoginOtpStatus.LOCKED) {
             AuditLog.loginSecondFactorBlocked(challenge.user(), req.getRemoteAddr());
-            session.invalidate();
-            res.sendRedirect(req.getContextPath() + "/login?verificacion=bloqueada");
+            expire(req, res, "bloqueada");
             return;
         }
 
-        LoginOtpChallenge failed = verification.challenge();
-        session.setAttribute("loginOtpChallenge", failed);
-        AuditLog.loginSecondFactorFailure(failed.user(), req.getRemoteAddr());
+        LoginSessions.replacePending(session, challenge);
+        AuditLog.loginSecondFactorFailure(challenge.user(), req.getRemoteAddr());
         render(
             req,
             res,
             session,
-            failed,
+            challenge,
             "Código incorrecto. Te quedan "
-                + otpService.attemptsRemaining(failed)
+                + otpService.attemptsRemaining(challenge)
                 + " intentos.",
             null
         );
+    }
+
+    private boolean challengeUsable(
+        HttpServletRequest req,
+        HttpServletResponse res,
+        HttpSession session,
+        LoginOtpChallenge challenge
+    ) throws IOException {
+        if (!otpService.isExpired(challenge) && !otpService.isLocked(challenge)) {
+            return true;
+        }
+        session.invalidate();
+        res.sendRedirect(req.getContextPath() + "/login?verificacion=expirada");
+        return false;
     }
 
     private void resend(
@@ -120,7 +135,7 @@ public final class LoginOtpServlet extends HttpServlet {
     ) throws ServletException, IOException {
         try {
             LoginOtpChallenge replacement = otpService.resend(challenge);
-            session.setAttribute("loginOtpChallenge", replacement);
+            LoginSessions.replacePending(session, replacement);
             AuditLog.loginSecondFactorResent(replacement.user(), req.getRemoteAddr());
             render(
                 req,
@@ -148,7 +163,6 @@ public final class LoginOtpServlet extends HttpServlet {
     private void complete(
         HttpServletRequest req,
         HttpServletResponse res,
-        HttpSession pendingSession,
         LoginOtpChallenge challenge
     ) throws IOException {
         try {
@@ -162,15 +176,18 @@ public final class LoginOtpServlet extends HttpServlet {
             return;
         }
 
-        pendingSession.invalidate();
-
-        HttpSession authenticated = req.getSession(true);
-        authenticated.setMaxInactiveInterval(30 * 60);
-        authenticated.setAttribute("user", challenge.user());
-        CsrfTokens.ensure(authenticated);
-
+        LoginSessions.complete(req, challenge.user());
         AuditLog.loginSuccess(challenge.user(), req.getRemoteAddr());
         res.sendRedirect(req.getContextPath() + "/panel");
+    }
+
+    private void expire(
+        HttpServletRequest req,
+        HttpServletResponse res,
+        String reason
+    ) throws IOException {
+        LoginSessions.invalidateCurrent(req);
+        res.sendRedirect(req.getContextPath() + "/login?verificacion=" + reason);
     }
 
     private void render(
@@ -186,12 +203,6 @@ public final class LoginOtpServlet extends HttpServlet {
         req.setAttribute("error", error);
         req.setAttribute("success", success);
         req.getRequestDispatcher("/WEB-INF/views/login-otp.jsp").forward(req, res);
-    }
-
-    private LoginOtpChallenge pending(HttpSession session) {
-        if (session == null) return null;
-        Object value = session.getAttribute("loginOtpChallenge");
-        return value instanceof LoginOtpChallenge challenge ? challenge : null;
     }
 
     private String maskEmail(String email) {
