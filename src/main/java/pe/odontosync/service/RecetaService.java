@@ -34,6 +34,14 @@ public final class RecetaService {
         return dao.findPatientsByDentist(current.clinicId(), current.id());
     }
 
+    public List<RecetaResumen> historyForPatient(User current, long patientId) throws SQLException {
+        requireDentist(current);
+        if (patientId <= 0) {
+            throw new IllegalArgumentException("Selecciona un paciente válido.");
+        }
+        return dao.findByPatient(current.clinicId(), current.id(), patientId);
+    }
+
     public long create(
         User current,
         long patientId,

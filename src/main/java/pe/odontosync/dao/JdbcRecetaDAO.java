@@ -26,6 +26,35 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         LIMIT 100
         """;
 
+
+    private static final String FIND_BY_PATIENT = """
+        SELECT DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
+               CONCAT(p.nombres,' ',p.apellidos) AS paciente,
+               r.medicamentos,
+               r.indicaciones
+        FROM recetas r
+        JOIN pacientes p
+          ON p.id_paciente=r.id_paciente
+        JOIN odontologos autor
+          ON autor.id_odontologo=r.id_odontologo
+         AND autor.id_clinica=p.id_clinica
+        WHERE p.id_clinica=?
+          AND p.id_paciente=?
+          AND EXISTS (
+              SELECT 1
+              FROM citas c
+              JOIN odontologos visor
+                ON visor.id_odontologo=c.id_odontologo
+               AND visor.id_clinica=c.id_clinica
+              WHERE c.id_clinica=p.id_clinica
+                AND c.id_paciente=p.id_paciente
+                AND visor.id_usuario=?
+                AND visor.estado='ACTIVO'
+          )
+        ORDER BY r.fecha_emision DESC
+        LIMIT 100
+        """;
+
     private static final String FIND_PATIENTS = """
         SELECT DISTINCT p.id_paciente,
                CONCAT(p.nombres,' ',p.apellidos) AS nombre,
@@ -88,6 +117,31 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
             ps.setQueryTimeout(8);
             ps.setLong(1, clinicId);
             ps.setLong(2, clinicId);
+            ps.setLong(3, dentistUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    items.add(new RecetaResumen(
+                        rs.getString("fecha"),
+                        rs.getString("paciente"),
+                        rs.getString("medicamentos"),
+                        rs.getString("indicaciones")
+                    ));
+                }
+            }
+        }
+        return items;
+    }
+
+
+    @Override
+    public List<RecetaResumen> findByPatient(long clinicId, long dentistUserId, long patientId)
+        throws SQLException {
+        List<RecetaResumen> items = new ArrayList<>();
+        try (Connection cn = DatabaseConnection.getConnection();
+             PreparedStatement ps = cn.prepareStatement(FIND_BY_PATIENT)) {
+            ps.setQueryTimeout(8);
+            ps.setLong(1, clinicId);
+            ps.setLong(2, patientId);
             ps.setLong(3, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
