@@ -7,6 +7,8 @@ import pe.odontosync.model.RecetaResumen;
 
 /** Operaciones funcionales del módulo Recetas. */
 public interface RecetaCrudDAO extends RecetaDAO {
+    RecetaResumen findById(long clinicId, long dentistUserId, long recipeId) throws SQLException;
+
     List<RecetaResumen> findByPatient(long clinicId, long dentistUserId, long patientId) throws SQLException;
 
     List<PacienteOpcion> findPatientsByDentist(long clinicId, long dentistUserId) throws SQLException;

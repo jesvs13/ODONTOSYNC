@@ -29,6 +29,21 @@ public final class RecetaService {
         return dao.findByDentist(current.clinicId(), current.id());
     }
 
+    public RecetaResumen detail(User current, long recipeId) throws SQLException {
+        requireDentist(current);
+        if (recipeId <= 0) {
+            throw new IllegalArgumentException("Selecciona una receta válida.");
+        }
+
+        RecetaResumen recipe = dao.findById(current.clinicId(), current.id(), recipeId);
+        if (recipe == null) {
+            throw new IllegalArgumentException(
+                "La receta no existe o no está disponible para este odontólogo."
+            );
+        }
+        return recipe;
+    }
+
     public List<PacienteOpcion> patients(User current) throws SQLException {
         requireDentist(current);
         return dao.findPatientsByDentist(current.clinicId(), current.id());

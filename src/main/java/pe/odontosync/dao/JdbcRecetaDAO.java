@@ -27,6 +27,34 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
         """;
 
 
+    private static final String FIND_BY_ID = """
+        SELECT DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
+               CONCAT(p.nombres,' ',p.apellidos) AS paciente,
+               r.medicamentos,
+               r.indicaciones
+        FROM recetas r
+        JOIN pacientes p
+          ON p.id_paciente=r.id_paciente
+        JOIN odontologos autor
+          ON autor.id_odontologo=r.id_odontologo
+         AND autor.id_clinica=p.id_clinica
+        WHERE r.id_receta=?
+          AND p.id_clinica=?
+          AND EXISTS (
+              SELECT 1
+              FROM citas c
+              JOIN odontologos visor
+                ON visor.id_odontologo=c.id_odontologo
+               AND visor.id_clinica=c.id_clinica
+              WHERE c.id_clinica=p.id_clinica
+                AND c.id_paciente=p.id_paciente
+                AND visor.id_usuario=?
+                AND visor.estado='ACTIVO'
+          )
+        LIMIT 1
+        """;
+
+
     private static final String FIND_BY_PATIENT = """
         SELECT DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
@@ -130,6 +158,30 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
             }
         }
         return items;
+    }
+
+
+    @Override
+    public RecetaResumen findById(long clinicId, long dentistUserId, long recipeId)
+        throws SQLException {
+        try (Connection cn = DatabaseConnection.getConnection();
+             PreparedStatement ps = cn.prepareStatement(FIND_BY_ID)) {
+            ps.setQueryTimeout(8);
+            ps.setLong(1, recipeId);
+            ps.setLong(2, clinicId);
+            ps.setLong(3, dentistUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                return new RecetaResumen(
+                    rs.getString("fecha"),
+                    rs.getString("paciente"),
+                    rs.getString("medicamentos"),
+                    rs.getString("indicaciones")
+                );
+            }
+        }
     }
 
 

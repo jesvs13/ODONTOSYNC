@@ -44,6 +44,20 @@ class RecetaServiceTest {
     }
 
     @Test
+    void odontologoConsultaRecetaIndividualVisible() throws Exception {
+        FakeRecetaDAO dao = new FakeRecetaDAO();
+        RecetaService service = new RecetaService(dao);
+
+        RecetaResumen recipe = service.detail(dentist(), 801);
+
+        assertEquals(5, dao.clinicId);
+        assertEquals(44, dao.dentistUserId);
+        assertEquals(801, dao.viewedRecipeId);
+        assertEquals("Ibuprofeno 500 mg", recipe.medicamentos());
+        assertEquals("Después de los alimentos", recipe.indicaciones());
+    }
+
+    @Test
     void rechazaMedicamentosVacios() {
         RecetaService service = new RecetaService(new FakeRecetaDAO());
 
@@ -86,6 +100,7 @@ class RecetaServiceTest {
         long dentistUserId;
         long patientId;
         long viewedPatientId;
+        long viewedRecipeId;
         String medications;
         String indications;
 
@@ -108,6 +123,22 @@ class RecetaServiceTest {
                 "Ibuprofeno 500 mg",
                 "Después de los alimentos"
             ));
+        }
+
+        public RecetaResumen findById(
+            long clinicId,
+            long dentistUserId,
+            long recipeId
+        ) {
+            this.clinicId = clinicId;
+            this.dentistUserId = dentistUserId;
+            this.viewedRecipeId = recipeId;
+            return new RecetaResumen(
+                "2026-11-19 20:00",
+                "Ana García",
+                "Ibuprofeno 500 mg",
+                "Después de los alimentos"
+            );
         }
 
         @Override
