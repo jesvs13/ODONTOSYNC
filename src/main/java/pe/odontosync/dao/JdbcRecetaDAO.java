@@ -184,6 +184,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
                 }
                 return new RecetaResumen(
                     rs.getLong("id_receta"),
+                    rs.getLong("id_paciente"),
                     rs.getString("fecha"),
                     rs.getString("paciente"),
                     rs.getString("medicamentos"),
