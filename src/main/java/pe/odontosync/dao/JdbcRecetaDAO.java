@@ -15,6 +15,7 @@ import pe.odontosync.model.RecetaResumen;
 public final class JdbcRecetaDAO implements RecetaCrudDAO {
     private static final String FIND_BY_DENTIST = """
         SELECT r.id_receta,
+               r.id_paciente,
                DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
                r.medicamentos,
@@ -30,6 +31,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
 
     private static final String FIND_BY_ID = """
         SELECT r.id_receta,
+               r.id_paciente,
                DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
                r.medicamentos,
@@ -59,6 +61,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
 
     private static final String FIND_BY_PATIENT = """
         SELECT r.id_receta,
+               r.id_paciente,
                DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
                r.medicamentos,
@@ -153,6 +156,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
                 while (rs.next()) {
                     items.add(new RecetaResumen(
                         rs.getLong("id_receta"),
+                        rs.getLong("id_paciente"),
                         rs.getString("fecha"),
                         rs.getString("paciente"),
                         rs.getString("medicamentos"),
@@ -204,6 +208,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
                 while (rs.next()) {
                     items.add(new RecetaResumen(
                         rs.getLong("id_receta"),
+                        rs.getLong("id_paciente"),
                         rs.getString("fecha"),
                         rs.getString("paciente"),
                         rs.getString("medicamentos"),
