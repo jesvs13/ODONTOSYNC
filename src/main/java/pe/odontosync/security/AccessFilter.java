@@ -63,7 +63,8 @@ public final class AccessFilter implements Filter {
 
         boolean sensitivePublicRoute = "/login".equals(path)
             || "/olvide-password".equals(path)
-            || "/restablecer-password".equals(path);
+            || "/restablecer-password".equals(path)
+            || "/verificar-login".equals(path);
 
         if (privateRoute || sensitivePublicRoute) {
             res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");

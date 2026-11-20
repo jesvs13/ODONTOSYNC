@@ -67,6 +67,39 @@ public final class AuditLog {
             userId, clinicId, safe(remoteAddress));
     }
 
+
+    public static void loginSecondFactorIssued(User user, String remoteAddress) {
+        if (user == null) return;
+        AUDIT.info(
+            "event=LOGIN_OTP_ISSUED userId={} clinicId={} ip={}",
+            user.id(), user.clinicId(), safe(remoteAddress)
+        );
+    }
+
+    public static void loginSecondFactorResent(User user, String remoteAddress) {
+        if (user == null) return;
+        AUDIT.info(
+            "event=LOGIN_OTP_RESENT userId={} clinicId={} ip={}",
+            user.id(), user.clinicId(), safe(remoteAddress)
+        );
+    }
+
+    public static void loginSecondFactorFailure(User user, String remoteAddress) {
+        if (user == null) return;
+        AUDIT.warn(
+            "event=LOGIN_OTP_FAILURE userId={} clinicId={} ip={}",
+            user.id(), user.clinicId(), safe(remoteAddress)
+        );
+    }
+
+    public static void loginSecondFactorBlocked(User user, String remoteAddress) {
+        if (user == null) return;
+        AUDIT.warn(
+            "event=LOGIN_OTP_BLOCKED userId={} clinicId={} ip={}",
+            user.id(), user.clinicId(), safe(remoteAddress)
+        );
+    }
+
     public static void accessDenied(User user, String path) {
         if (user == null) return;
         AUDIT.warn("event=ACCESS_DENIED userId={} clinicId={} role={} path={}",

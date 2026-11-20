@@ -7,31 +7,40 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pe.odontosync.User;
 import pe.odontosync.dao.JdbcUsuarioDAO;
+import pe.odontosync.mail.SmtpLoginOtpMailer;
 import pe.odontosync.security.AuditLog;
 import pe.odontosync.security.LoginAttemptGuard;
+import pe.odontosync.security.LoginSessions;
 import pe.odontosync.service.AuthService;
+import pe.odontosync.service.LoginOtpDeliveryException;
+import pe.odontosync.service.LoginOtpService;
 
-/** Controlador HTTP del caso de uso de inicio de sesión. */
+/** Primer factor del inicio de sesión: correo y contraseña. */
 @WebServlet("/login")
 public final class LoginServlet extends HttpServlet {
     private static final Logger LOG = LoggerFactory.getLogger(LoginServlet.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
     private static final LoginAttemptGuard ATTEMPTS = new LoginAttemptGuard();
+
     private final AuthService authService = new AuthService(new JdbcUsuarioDAO());
+    private final LoginOtpService otpService =
+        new LoginOtpService(new SmtpLoginOtpMailer());
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
         throws ServletException, IOException {
-        if (req.getSession(false) != null && req.getSession(false).getAttribute("user") instanceof User) {
+        HttpSession session = req.getSession(false);
+        if (session != null && session.getAttribute("user") instanceof User) {
             res.sendRedirect(req.getContextPath() + "/panel");
+            return;
+        }
+        if (LoginSessions.pending(session) != null) {
+            res.sendRedirect(req.getContextPath() + "/verificar-login");
             return;
         }
         req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, res);
@@ -41,56 +50,49 @@ public final class LoginServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse res)
         throws ServletException, IOException {
         req.setCharacterEncoding("UTF-8");
-        String email = StringUtils.lowerCase(StringUtils.trimToEmpty(req.getParameter("correo")));
+        String email = StringUtils.lowerCase(
+            StringUtils.trimToEmpty(req.getParameter("correo"))
+        );
         String submitted = req.getParameter("clave");
 
-        if (StringUtils.isBlank(email) || email.length() > 150
-            || StringUtils.isEmpty(submitted) || submitted.length() > 1000) {
+        if (invalidCredentialsInput(email, submitted)) {
             AuditLog.loginFailure(email, req.getRemoteAddr());
             error(req, res, 400, "Ingresa un correo y contraseña válidos.");
             return;
         }
 
-        String attemptKey;
-        try {
-            attemptKey = ATTEMPTS.key(email, req.getRemoteAddr());
-        } catch (IllegalArgumentException ex) {
-            AuditLog.loginFailure(email, req.getRemoteAddr());
-            error(req, res, 400, "Datos de acceso no válidos.");
-            return;
-        }
-        if (!ATTEMPTS.isAllowed(attemptKey)) {
-            AuditLog.loginBlocked(email, req.getRemoteAddr());
-            res.setHeader("Retry-After", "300");
-            error(req, res, 429, "Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar.");
-            return;
-        }
+        String attemptKey = attemptKey(req, res, email);
+        if (attemptKey == null) return;
 
         char[] password = submitted.toCharArray();
         try {
-            User user = authService.authenticate(email, password);
+            User user = authService.verifyFirstFactor(email, password);
             if (user == null) {
                 ATTEMPTS.recordFailure(attemptKey);
                 AuditLog.loginFailure(email, req.getRemoteAddr());
-                error(req, res, 401, "Correo o contraseña incorrectos, o cuenta inactiva.");
+                error(
+                    req,
+                    res,
+                    401,
+                    "Correo o contraseña incorrectos, o cuenta inactiva."
+                );
                 return;
             }
+
+            var challenge = otpService.issue(user, email);
             ATTEMPTS.recordSuccess(attemptKey);
+            LoginSessions.beginSecondFactor(req, challenge);
 
-            // Mitiga session fixation: invalida cualquier sesión previa y crea una nueva.
-            HttpSession previous = req.getSession(false);
-            if (previous != null) previous.invalidate();
-
-            HttpSession session = req.getSession(true);
-            session.setMaxInactiveInterval(30 * 60);
-            session.setAttribute("user", user);
-
-            byte[] random = new byte[32];
-            RANDOM.nextBytes(random);
-            session.setAttribute("csrf", Base64.getUrlEncoder().withoutPadding().encodeToString(random));
-
-            AuditLog.loginSuccess(user, req.getRemoteAddr());
-            res.sendRedirect(req.getContextPath() + "/panel");
+            AuditLog.loginSecondFactorIssued(user, req.getRemoteAddr());
+            res.sendRedirect(req.getContextPath() + "/verificar-login");
+        } catch (LoginOtpDeliveryException ex) {
+            LOG.error("No se pudo entregar el segundo factor por correo", ex);
+            error(
+                req,
+                res,
+                503,
+                "No se pudo enviar el código de seguridad. Inténtalo nuevamente."
+            );
         } catch (Exception ex) {
             LOG.error("Fallo consultando MySQL durante el login", ex);
             error(req, res, 503, "No se pudo consultar MySQL. Revisa la conexión.");
@@ -99,8 +101,47 @@ public final class LoginServlet extends HttpServlet {
         }
     }
 
-    private void error(HttpServletRequest req, HttpServletResponse res, int status, String message)
-        throws ServletException, IOException {
+    private String attemptKey(
+        HttpServletRequest req,
+        HttpServletResponse res,
+        String email
+    ) throws ServletException, IOException {
+        String key;
+        try {
+            key = ATTEMPTS.key(email, req.getRemoteAddr());
+        } catch (IllegalArgumentException ex) {
+            AuditLog.loginFailure(email, req.getRemoteAddr());
+            error(req, res, 400, "Datos de acceso no válidos.");
+            return null;
+        }
+
+        if (!ATTEMPTS.isAllowed(key)) {
+            AuditLog.loginBlocked(email, req.getRemoteAddr());
+            res.setHeader("Retry-After", "300");
+            error(
+                req,
+                res,
+                429,
+                "Demasiados intentos fallidos. Espera unos minutos antes de volver a intentar."
+            );
+            return null;
+        }
+        return key;
+    }
+
+    private boolean invalidCredentialsInput(String email, String password) {
+        return StringUtils.isBlank(email)
+            || email.length() > 150
+            || StringUtils.isEmpty(password)
+            || password.length() > 1000;
+    }
+
+    private void error(
+        HttpServletRequest req,
+        HttpServletResponse res,
+        int status,
+        String message
+    ) throws ServletException, IOException {
         req.setAttribute("error", message);
         res.setStatus(status);
         req.getRequestDispatcher("/WEB-INF/views/login.jsp").forward(req, res);
