@@ -61,7 +61,11 @@ public final class AccessFilter implements Filter {
         boolean privateRoute = PRIVATE_EXACT.contains(path)
             || PRIVATE_PREFIXES.stream().anyMatch(path::startsWith);
 
-        if (privateRoute || "/login".equals(path)) {
+        boolean sensitivePublicRoute = "/login".equals(path)
+            || "/olvide-password".equals(path)
+            || "/restablecer-password".equals(path);
+
+        if (privateRoute || sensitivePublicRoute) {
             res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
             res.setHeader("Pragma", "no-cache");
         }

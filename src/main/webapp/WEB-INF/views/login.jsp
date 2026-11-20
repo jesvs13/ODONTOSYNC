@@ -3,6 +3,7 @@
 <%
 String error = (String) request.getAttribute("error");
 String base = request.getContextPath();
+boolean passwordResetDone = "1".equals(request.getParameter("restablecida"));
 %>
 <!doctype html>
 <html lang="es">
@@ -13,7 +14,7 @@ String base = request.getContextPath();
   <link rel="icon" type="image/svg+xml" href="<%= Html.escape(base) %>/brand/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="<%= Html.escape(base) %>/brand/icon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="<%= Html.escape(base) %>/brand/icon-16.png">
-  <link rel="stylesheet" href="<%= Html.escape(base) %>/css/estilos.css?v=20261012-semana10">
+  <link rel="stylesheet" href="<%= Html.escape(base) %>/css/estilos.css?v=20261112-password-reset">
 </head>
 <body>
   <main class="login-screen">
@@ -22,7 +23,8 @@ String base = request.getContextPath();
       <p class="muted login-subtitle">Sistema de gestión para clínicas odontológicas</p>
       <div class="divider"></div>
       <h1>Iniciar sesión</h1>
-      <% if (error != null) { %><p class="alert" role="alert"><%= Html.escape(error) %></p><% } %>
+      <% if (error != null) { %><p class="alert danger" role="alert"><%= Html.escape(error) %></p><% } %>
+      <% if (passwordResetDone) { %><p class="alert success" role="status">Contraseña restablecida correctamente. Ya puedes iniciar sesión.</p><% } %>
       <form action="<%= Html.escape(base) %>/login" method="post">
         <label for="correo">Correo electrónico</label>
         <input id="correo" name="correo" type="email" autocomplete="username" required maxlength="150" placeholder="usuario@odontosync.pe">
@@ -30,6 +32,7 @@ String base = request.getContextPath();
         <input id="clave" name="clave" type="password" autocomplete="current-password" required>
         <button class="primary" type="submit">Ingresar</button>
       </form>
+      <p class="forgot-password-link"><a href="<%= Html.escape(base) %>/olvide-password">¿Olvidaste tu contraseña?</a></p>
       <p class="login-note">El rol se reconoce a partir de tu cuenta.</p>
       <div class="login-info">
         <strong>ACCESO SEGURO</strong>

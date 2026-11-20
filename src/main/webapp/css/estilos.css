@@ -839,3 +839,37 @@ tr:hover td { background: #f9fcfe; }
 }
 .password-actions { justify-content: flex-start; }
 
+
+
+/* Issue 4: recuperacion segura de contrasena */
+.forgot-password-link {
+  margin: 10px 0 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.forgot-password-link a,
+.reset-back a {
+  color: var(--blue);
+  text-decoration: none;
+}
+.forgot-password-link a:hover,
+.reset-back a:hover {
+  text-decoration: underline;
+}
+.reset-help,
+.reset-requirements {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: left;
+}
+.reset-requirements {
+  margin: 0 0 8px;
+}
+.reset-back {
+  text-align: center;
+}
+.password-reset-card {
+  max-width: 460px;
+}
