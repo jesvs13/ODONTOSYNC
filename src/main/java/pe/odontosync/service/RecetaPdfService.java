@@ -4,79 +4,171 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import pe.odontosync.model.ClinicaResumen;
 import pe.odontosync.model.RecetaResumen;
 
 /**
- * Genera un PDF simple y autónomo para una receta individual.
+ * Genera el documento PDF de una receta usando la identidad de la clínica emisora.
  * No requiere dependencias externas.
  */
 public final class RecetaPdfService {
 
-    public byte[] generate(RecetaResumen receta) {
+    public byte[] generate(RecetaResumen receta, ClinicaResumen clinica) {
         if (receta == null) {
             throw new IllegalArgumentException("La receta es obligatoria.");
         }
+        if (clinica == null) {
+            throw new IllegalArgumentException("La clínica es obligatoria.");
+        }
 
-        String content = buildContent(receta);
-        return buildPdf(content);
+        return buildPdf(buildContent(receta, clinica));
     }
 
-    private String buildContent(RecetaResumen receta) {
+    private String buildContent(RecetaResumen receta, ClinicaResumen clinica) {
         StringBuilder out = new StringBuilder();
 
-        out.append("BT\n");
-        out.append("/F1 18 Tf\n");
-        out.append("50 790 Td\n");
-        out.append(pdfText("ODONTOSYNC - RECETA MEDICA")).append(" Tj\n");
+        // Encabezado institucional.
+        out.append("0.97 0.99 1 rg\n");
+        out.append("40 742 515 70 re f\n");
 
-        out.append("0 -30 Td\n");
-        out.append("/F1 11 Tf\n");
-        out.append(pdfText("Receta #" + receta.idReceta())).append(" Tj\n");
+        out.append("0.05 0.25 0.36 rg\n");
+        text(out, "F2", 18, 55, 785, safe(clinica.nombre()));
+        text(out, "F1", 9, 55, 767, clinicLine(clinica));
 
-        out.append("0 -20 Td\n");
-        out.append(pdfText("Paciente: " + safe(receta.paciente()))).append(" Tj\n");
+        out.append("0.08 0.43 0.55 rg\n");
+        text(out, "F2", 15, 405, 785, "RECETA MÉDICA");
 
-        out.append("0 -18 Td\n");
-        out.append(pdfText("Fecha de emision: " + safe(receta.fecha()))).append(" Tj\n");
+        out.append("0.70 0.82 0.87 RG\n");
+        out.append("1 w\n");
+        out.append("40 733 m 555 733 l S\n");
 
-        out.append("0 -28 Td\n");
-        out.append("/F1 13 Tf\n");
-        out.append(pdfText("Medicamentos")).append(" Tj\n");
+        // Identificación del documento.
+        out.append("0.12 0.18 0.23 rg\n");
+        text(out, "F2", 10, 55, 708, "Receta N.° " + receta.idReceta());
+        text(out, "F1", 10, 370, 708, "Fecha de emisión: " + safe(receta.fecha()));
 
-        out.append("/F1 11 Tf\n");
-        appendMultiline(out, receta.medicamentos(), 18);
+        // Paciente.
+        sectionTitle(out, 55, 672, "PACIENTE");
+        infoBox(out, 55, 620, 500, 38);
+        text(out, "F1", 8, 68, 644, "Nombre");
+        text(out, "F2", 11, 68, 627, safe(receta.paciente()));
 
-        out.append("0 -12 Td\n");
-        out.append("/F1 13 Tf\n");
-        out.append(pdfText("Indicaciones")).append(" Tj\n");
+        // Medicamentos.
+        sectionTitle(out, 55, 585, "MEDICAMENTOS");
+        List<String> medicationLines = wrapLines(safe(receta.medicamentos()), 76);
+        if (medicationLines.isEmpty()) {
+            medicationLines = List.of("-");
+        }
 
-        out.append("/F1 11 Tf\n");
-        appendMultiline(out, receta.indicaciones(), 18);
+        int medicationHeight = Math.max(62, 28 + medicationLines.size() * 17);
+        int medicationBottom = 568 - medicationHeight;
+        infoBox(out, 55, medicationBottom, 500, medicationHeight);
 
-        out.append("ET\n");
+        int y = 548;
+        int item = 1;
+        for (String line : medicationLines) {
+            text(out, "F2", 10, 70, y, item + ".");
+            text(out, "F1", 10, 92, y, line);
+            item++;
+            y -= 17;
+        }
+
+        // Indicaciones.
+        int indicationsTitleY = medicationBottom - 30;
+        sectionTitle(out, 55, indicationsTitleY, "INDICACIONES");
+
+        List<String> indicationLines = wrapLines(safe(receta.indicaciones()), 76);
+        if (indicationLines.isEmpty()) {
+            indicationLines = List.of("-");
+        }
+
+        int indicationHeight = Math.max(62, 28 + indicationLines.size() * 17);
+        int indicationBottom = indicationsTitleY - 18 - indicationHeight;
+        infoBox(out, 55, indicationBottom, 500, indicationHeight);
+
+        y = indicationsTitleY - 42;
+        for (String line : indicationLines) {
+            text(out, "F1", 10, 70, y, line);
+            y -= 17;
+        }
+
+        // Pie.
+        int footerY = Math.max(62, indicationBottom - 55);
+        out.append("0.82 0.88 0.91 RG\n");
+        out.append("40 ").append(footerY + 18).append(" m 555 ")
+            .append(footerY + 18).append(" l S\n");
+
+        out.append("0.35 0.42 0.46 rg\n");
+        text(out, "F1", 8, 55, footerY,
+            "Documento emitido por " + safe(clinica.nombre()) + ".");
+        text(out, "F1", 8, 55, footerY - 13,
+            "Receta médica generada electrónicamente.");
+
         return out.toString();
     }
 
-    private void appendMultiline(StringBuilder out, String value, int leading) {
-        List<String> lines = wrap(safe(value), 78);
-        if (lines.isEmpty()) {
-            lines = List.of("-");
-        }
-
-        for (String line : lines) {
-            out.append("0 -").append(leading).append(" Td\n");
-            out.append(pdfText(line)).append(" Tj\n");
-        }
+    private void sectionTitle(StringBuilder out, int x, int y, String title) {
+        out.append("0.08 0.43 0.55 rg\n");
+        text(out, "F2", 9, x, y, title);
     }
 
-    private List<String> wrap(String value, int maxLength) {
+    private void infoBox(
+        StringBuilder out,
+        int x,
+        int y,
+        int width,
+        int height
+    ) {
+        out.append("0.985 0.992 0.995 rg\n");
+        out.append(x).append(' ').append(y).append(' ')
+            .append(width).append(' ').append(height).append(" re f\n");
+
+        out.append("0.84 0.89 0.92 RG\n");
+        out.append("0.8 w\n");
+        out.append(x).append(' ').append(y).append(' ')
+            .append(width).append(' ').append(height).append(" re S\n");
+    }
+
+    private String clinicLine(ClinicaResumen clinica) {
+        List<String> parts = new ArrayList<>();
+
+        if (!blank(clinica.ruc())) {
+            parts.add("RUC " + clinica.ruc().trim());
+        }
+        if (!blank(clinica.direccion())) {
+            parts.add(clinica.direccion().trim());
+        }
+        if (!blank(clinica.telefono())) {
+            parts.add("Tel. " + clinica.telefono().trim());
+        }
+
+        return parts.isEmpty()
+            ? "Información institucional"
+            : String.join("  ·  ", parts);
+    }
+
+    private void text(
+        StringBuilder out,
+        String font,
+        int size,
+        int x,
+        int y,
+        String value
+    ) {
+        out.append("BT\n");
+        out.append('/').append(font).append(' ').append(size).append(" Tf\n");
+        out.append(x).append(' ').append(y).append(" Td\n");
+        out.append(pdfText(value)).append(" Tj\n");
+        out.append("ET\n");
+    }
+
+    private List<String> wrapLines(String value, int maxLength) {
         List<String> result = new ArrayList<>();
 
-        for (String rawLine : value.replace("\r", "").split("\n", -1)) {
+        for (String rawLine : safe(value).replace("\r", "").split("\n", -1)) {
             String line = rawLine.trim();
 
             if (line.isEmpty()) {
-                result.add("");
                 continue;
             }
 
@@ -85,11 +177,14 @@ public final class RecetaPdfService {
                 if (cut <= 0) {
                     cut = maxLength;
                 }
+
                 result.add(line.substring(0, cut).trim());
                 line = line.substring(cut).trim();
             }
 
-            result.add(line);
+            if (!line.isEmpty()) {
+                result.add(line);
+            }
         }
 
         return result;
@@ -122,8 +217,13 @@ public final class RecetaPdfService {
             << /Type /Page
                /Parent 2 0 R
                /MediaBox [0 0 595 842]
-               /Resources << /Font << /F1 4 0 R >> >>
-               /Contents 5 0 R
+               /Resources <<
+                 /Font <<
+                   /F1 4 0 R
+                   /F2 5 0 R
+                 >>
+               >>
+               /Contents 6 0 R
             >>
             endobj
             """);
@@ -135,16 +235,25 @@ public final class RecetaPdfService {
             endobj
             """);
 
-        byte[] contentBytes = content.getBytes(StandardCharsets.ISO_8859_1);
         offsets.add(pdf.size());
-        write(pdf, "5 0 obj\n");
+        write(pdf, """
+            5 0 obj
+            << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+            endobj
+            """);
+
+        byte[] contentBytes = content.getBytes(StandardCharsets.ISO_8859_1);
+
+        offsets.add(pdf.size());
+        write(pdf, "6 0 obj\n");
         write(pdf, "<< /Length " + contentBytes.length + " >>\n");
         write(pdf, "stream\n");
         pdf.writeBytes(contentBytes);
         write(pdf, "\nendstream\nendobj\n");
 
         int xrefOffset = pdf.size();
-        write(pdf, "xref\n0 6\n");
+
+        write(pdf, "xref\n0 7\n");
         write(pdf, "0000000000 65535 f \n");
 
         for (int offset : offsets) {
@@ -153,7 +262,7 @@ public final class RecetaPdfService {
 
         write(pdf, """
             trailer
-            << /Size 6 /Root 1 0 R >>
+            << /Size 7 /Root 1 0 R >>
             startxref
             """);
         write(pdf, Integer.toString(xrefOffset));
@@ -171,7 +280,12 @@ public final class RecetaPdfService {
             .replace("\\", "\\\\")
             .replace("(", "\\(")
             .replace(")", "\\)");
+
         return "(" + escaped + ")";
+    }
+
+    private boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private String safe(String value) {

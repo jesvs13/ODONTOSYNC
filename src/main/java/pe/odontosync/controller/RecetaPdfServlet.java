@@ -11,7 +11,10 @@ import java.sql.SQLException;
 import org.apache.commons.lang3.StringUtils;
 import pe.odontosync.Role;
 import pe.odontosync.User;
+import pe.odontosync.dao.ClinicaDAO;
+import pe.odontosync.dao.JdbcClinicaDAO;
 import pe.odontosync.dao.JdbcRecetaDAO;
+import pe.odontosync.model.ClinicaResumen;
 import pe.odontosync.model.RecetaResumen;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
@@ -25,11 +28,13 @@ public final class RecetaPdfServlet extends HttpServlet {
 
     private transient RecetaService recetaService;
     private transient RecetaPdfService pdfService;
+    private transient ClinicaDAO clinicaDAO;
 
     @Override
     public void init() {
         recetaService = new RecetaService(new JdbcRecetaDAO());
         pdfService = new RecetaPdfService();
+        clinicaDAO = new JdbcClinicaDAO();
     }
 
     @Override
@@ -42,7 +47,13 @@ public final class RecetaPdfServlet extends HttpServlet {
         try {
             long recipeId = parseId(req.getParameter("id"));
             RecetaResumen receta = recetaService.detail(current, recipeId);
-            byte[] pdf = pdfService.generate(receta);
+
+            ClinicaResumen clinica = clinicaDAO.findById(current.clinicId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "La clínica de la receta no está disponible."
+                ));
+
+            byte[] pdf = pdfService.generate(receta, clinica);
 
             res.setContentType("application/pdf");
             res.setContentLength(pdf.length);
