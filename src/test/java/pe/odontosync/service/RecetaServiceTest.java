@@ -30,6 +30,20 @@ class RecetaServiceTest {
     }
 
     @Test
+    void odontologoConsultaRecetasDePacienteVisible() throws Exception {
+        FakeRecetaDAO dao = new FakeRecetaDAO();
+        RecetaService service = new RecetaService(dao);
+
+        List<RecetaResumen> recipes = service.historyForPatient(dentist(), 31);
+
+        assertEquals(1, recipes.size());
+        assertEquals(5, dao.clinicId);
+        assertEquals(44, dao.dentistUserId);
+        assertEquals(31, dao.viewedPatientId);
+        assertEquals("Ibuprofeno 500 mg", recipes.get(0).medicamentos());
+    }
+
+    @Test
     void rechazaMedicamentosVacios() {
         RecetaService service = new RecetaService(new FakeRecetaDAO());
 
@@ -71,12 +85,29 @@ class RecetaServiceTest {
         long clinicId;
         long dentistUserId;
         long patientId;
+        long viewedPatientId;
         String medications;
         String indications;
 
         @Override
         public List<RecetaResumen> findByDentist(long clinicId, long dentistUserId) {
             return List.of();
+        }
+
+        public List<RecetaResumen> findByPatient(
+            long clinicId,
+            long dentistUserId,
+            long patientId
+        ) {
+            this.clinicId = clinicId;
+            this.dentistUserId = dentistUserId;
+            this.viewedPatientId = patientId;
+            return List.of(new RecetaResumen(
+                "2026-11-19 20:00",
+                "Ana García",
+                "Ibuprofeno 500 mg",
+                "Después de los alimentos"
+            ));
         }
 
         @Override
