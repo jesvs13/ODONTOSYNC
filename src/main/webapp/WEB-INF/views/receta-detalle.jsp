@@ -29,6 +29,10 @@ String initial = patientName.isBlank() ? "P" : patientName.substring(0, 1).toUpp
     <div class="clinical-head-actions">
       <a class="btn secondary" href="<%= Html.escape(historyHref) %>">Volver a Historia clínica</a>
       <a class="btn secondary" href="<%= Html.escape(base) %>/modulo/recetas">Ir a Recetas</a>
+      <a class="btn primary"
+         href="<%= Html.escape(base) %>/modulo/recetas/pdf?id=<%= recipe.idReceta() %>">
+        Descargar PDF
+      </a>
     </div>
   </div>
 
@@ -67,7 +71,7 @@ String initial = patientName.isBlank() ? "P" : patientName.substring(0, 1).toUpp
 </section>
 
 <p class="read-only">
-  Esta vista es solo de consulta. PDF, impresión y WhatsApp se integrarán en pasos posteriores.
+  Esta vista es solo de consulta. Impresión y WhatsApp se integrarán en pasos posteriores.
 </p>
 <% } %>
 
