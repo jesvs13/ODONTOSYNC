@@ -61,7 +61,7 @@ public final class JdbcPasswordResetDAO implements PasswordResetDAO {
           AND u.estado = 'ACTIVO'
           AND c.estado = 'ACTIVA'
         LIMIT 1
-        FOR UPDATE
+        FOR UPDATE OF t 
         """;
 
     private static final String UPDATE_PASSWORD = """
