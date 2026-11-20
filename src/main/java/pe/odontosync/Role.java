@@ -12,7 +12,19 @@ public enum Role {
 
     private static final ImmutableListMultimap<Role, String> MODULES =
         ImmutableListMultimap.<Role, String>builder()
-            .putAll(ADMINISTRADOR, "pacientes", "odontologos", "horarios", "agenda", "pagos", "inventario", "reportes", "usuarios", "clinica")
+            .putAll(
+                ADMINISTRADOR,
+                "pacientes",
+                "odontologos",
+                "horarios",
+                "agenda",
+                "pagos",
+                "inventario",
+                "reportes",
+                "usuarios",
+                "clinica",
+                "dashboard"
+            )
             .putAll(RECEPCIONISTA, "pacientes", "odontologos", "horarios", "agenda", "pagos")
             .putAll(ODONTOLOGO, "pacientes", "horarios", "agenda", "historias", "recetas", "placas")
             .build();
