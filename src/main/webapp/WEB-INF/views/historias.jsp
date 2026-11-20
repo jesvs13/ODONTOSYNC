@@ -4,6 +4,7 @@
 <%
 List<HistoriaPacienteResumen> items = (List<HistoriaPacienteResumen>) request.getAttribute("historyList");
 HistoriaPacienteVista view = (HistoriaPacienteVista) request.getAttribute("historyView");
+List<RecetaResumen> patientRecipes = (List<RecetaResumen>) request.getAttribute("patientRecipes");
 String query = (String) request.getAttribute("historyQuery");
 String success = (String) request.getAttribute("success");
 String error = (String) request.getAttribute("error");
@@ -69,6 +70,7 @@ String error = (String) request.getAttribute("error");
     <div class="patient-file-actions">
       <span class="history-status <%= h != null && "ACTIVA".equals(h.estado()) ? "active" : "pending" %>"><%= h == null ? "SIN ABRIR" : Html.escape(h.estado()) %></span>
       <a class="btn secondary" href="<%= Html.escape(base) %>/pacientes?ficha=<%= p.id() %>">Ficha paciente</a>
+      <a class="btn primary" href="<%= Html.escape(base) %>/modulo/recetas?paciente=<%= p.id() %>">Emitir receta</a>
     </div>
   </div>
 
@@ -145,6 +147,30 @@ String error = (String) request.getAttribute("error");
           </article>
         <% } %>
         <% if (view.consultas().isEmpty()) { %><p class="empty-note">Todavía no existen atenciones clínicas registradas para este paciente.</p><% } %>
+      </div>
+    </section>
+
+    <section class="patient-section patient-section-wide clinical-consultations">
+      <div class="section-title">
+        <div><span>TRATAMIENTO</span><h3>Recetas médicas</h3></div>
+        <span><%= patientRecipes == null ? 0 : patientRecipes.size() %> registros</span>
+      </div>
+      <div class="consultation-timeline">
+        <% if (patientRecipes != null) for (RecetaResumen r : patientRecipes) { %>
+          <article class="consultation-entry">
+            <div class="consultation-meta">
+              <strong><%= Html.escape(r.fecha()) %></strong>
+              <span>Prescripción registrada</span>
+            </div>
+            <div class="consultation-body">
+              <div><span>Medicamentos</span><p><%= Html.escape(r.medicamentos()) %></p></div>
+              <div><span>Indicaciones</span><p><%= Html.escape(r.indicaciones()) %></p></div>
+            </div>
+          </article>
+        <% } %>
+        <% if (patientRecipes == null || patientRecipes.isEmpty()) { %>
+          <p class="empty-note">Todavía no existen recetas médicas registradas para este paciente.</p>
+        <% } %>
       </div>
     </section>
   </div>

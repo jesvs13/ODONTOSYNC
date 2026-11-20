@@ -12,14 +12,17 @@ import org.apache.commons.lang3.StringUtils;
 import pe.odontosync.Role;
 import pe.odontosync.User;
 import pe.odontosync.dao.JdbcClinicaAtencionDAO;
+import pe.odontosync.dao.JdbcRecetaDAO;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
 import pe.odontosync.service.HistoriaClinicaService;
+import pe.odontosync.service.RecetaService;
 
 /** Historia clínica longitudinal visible únicamente al odontólogo. */
 @WebServlet("/historias")
 public final class HistoriaClinicaServlet extends HttpServlet {
     private final HistoriaClinicaService service = new HistoriaClinicaService(new JdbcClinicaAtencionDAO());
+    private final RecetaService recetaService = new RecetaService(new JdbcRecetaDAO());
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
@@ -34,7 +37,9 @@ public final class HistoriaClinicaServlet extends HttpServlet {
             req.setAttribute("historyQuery", query);
             String patient = value(req, "paciente");
             if (!patient.isBlank()) {
-                req.setAttribute("historyView", service.load(current, parseId(patient, "paciente")));
+                long patientId = parseId(patient, "paciente");
+                req.setAttribute("historyView", service.load(current, patientId));
+                req.setAttribute("patientRecipes", recetaService.historyForPatient(current, patientId));
             }
             HttpSession session = req.getSession(false);
             if (session != null) {
