@@ -14,7 +14,8 @@ import pe.odontosync.model.RecetaResumen;
 /** Acceso JDBC a recetas con consulta y registro seguro por clínica y odontólogo. */
 public final class JdbcRecetaDAO implements RecetaCrudDAO {
     private static final String FIND_BY_DENTIST = """
-        SELECT DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
+        SELECT r.id_receta,
+               DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
                r.medicamentos,
                r.indicaciones
@@ -28,7 +29,8 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
 
 
     private static final String FIND_BY_ID = """
-        SELECT DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
+        SELECT r.id_receta,
+               DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
                r.medicamentos,
                r.indicaciones
@@ -56,7 +58,8 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
 
 
     private static final String FIND_BY_PATIENT = """
-        SELECT DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
+        SELECT r.id_receta,
+               DATE_FORMAT(r.fecha_emision,'%Y-%m-%d %H:%i') AS fecha,
                CONCAT(p.nombres,' ',p.apellidos) AS paciente,
                r.medicamentos,
                r.indicaciones
@@ -149,6 +152,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     items.add(new RecetaResumen(
+                        rs.getLong("id_receta"),
                         rs.getString("fecha"),
                         rs.getString("paciente"),
                         rs.getString("medicamentos"),
@@ -175,6 +179,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
                     return null;
                 }
                 return new RecetaResumen(
+                    rs.getLong("id_receta"),
                     rs.getString("fecha"),
                     rs.getString("paciente"),
                     rs.getString("medicamentos"),
@@ -198,6 +203,7 @@ public final class JdbcRecetaDAO implements RecetaCrudDAO {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     items.add(new RecetaResumen(
+                        rs.getLong("id_receta"),
                         rs.getString("fecha"),
                         rs.getString("paciente"),
                         rs.getString("medicamentos"),
