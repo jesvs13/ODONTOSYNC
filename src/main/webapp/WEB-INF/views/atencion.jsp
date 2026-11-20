@@ -29,6 +29,7 @@ boolean editingClinical = c != null;
     <div class="clinical-head-actions">
       <span class="appointment-status status-<%= a.estadoCita().toLowerCase() %>"><%= Html.escape(a.estadoCita()) %></span>
       <a class="btn secondary" href="<%= Html.escape(base) %>/historias?paciente=<%= a.idPaciente() %>">Ver historia clínica</a>
+      <% if (editingClinical) { %><a class="btn primary" href="<%= Html.escape(base) %>/modulo/recetas?paciente=<%= a.idPaciente() %>">Emitir receta</a><% } %>
       <a class="btn secondary" href="<%= Html.escape(base) %>/agenda">Volver a Agenda</a>
     </div>
   </div>
