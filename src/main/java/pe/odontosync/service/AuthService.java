@@ -15,7 +15,18 @@ public final class AuthService {
         this.usuarioDAO = usuarioDAO;
     }
 
+    /**
+     * Compatibilidad con el flujo anterior: autentica y registra el acceso.
+     * El login web con 2FA usa verifyFirstFactor + completeLogin.
+     */
     public User authenticate(String email, char[] password) throws SQLException {
+        User user = verifyFirstFactor(email, password);
+        if (user != null) completeLogin(user);
+        return user;
+    }
+
+    /** Valida correo/contraseña sin considerar la sesión todavía autenticada. */
+    public User verifyFirstFactor(String email, char[] password) throws SQLException {
         User match = null;
         for (LoginAccount account : usuarioDAO.findLoginAccountsByEmail(email)) {
             Role role = Role.fromDatabase(account.roleName());
@@ -36,8 +47,14 @@ public final class AuthService {
                 );
             }
         }
-
-        if (match != null) usuarioDAO.updateLastAccess(match.id());
         return match;
+    }
+
+    /** Registra el acceso únicamente después de completar el segundo factor. */
+    public void completeLogin(User user) throws SQLException {
+        if (user == null || user.id() <= 0) {
+            throw new IllegalArgumentException("El usuario autenticado es obligatorio.");
+        }
+        usuarioDAO.updateLastAccess(user.id());
     }
 }
