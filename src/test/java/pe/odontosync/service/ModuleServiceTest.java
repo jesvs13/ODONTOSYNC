@@ -96,7 +96,7 @@ class ModuleServiceTest {
         public List<UsuarioResumen> findByClinic(long c){clinic=c;return List.of(new UsuarioResumen("Admin","a@o.pe","ADMINISTRADOR","ACTIVO"));}
     }
     private static final class FHistoria implements HistoriaDAO { long user; public List<HistoriaResumen> findAssignedToDentist(long c,long u){user=u;return List.of(new HistoriaResumen("Ana","1","2026-01-01","ACTIVA"));} }
-    private static final class FReceta implements RecetaDAO { long user; public List<RecetaResumen> findByDentist(long c,long u){user=u;return List.of(new RecetaResumen("2026-10-09","Ana","Rx","Cada 8h"));} }
+    private static final class FReceta implements RecetaDAO { long user; public List<RecetaResumen> findByDentist(long c,long u){user=u;return List.of(new RecetaResumen(90,"2026-10-09","Ana","Rx","Cada 8h"));} }
     private static final class FPlaca implements PlacaDAO { long user; public List<PlacaResumen> findAssignedToDentist(long c,long u){user=u;return List.of(new PlacaResumen("2026-10-09","Ana","placa.png"));} }
     private static final class FPago implements PagoDAO { long clinic; public List<PagoResumen> findByClinic(long c){clinic=c;return List.of(new PagoResumen("2026-10-09","Ana","125.50","YAPE"));} }
     private static final class FInventario implements InventarioDAO { long clinic; public List<InventarioResumen> findByClinic(long c){clinic=c;return List.of(new InventarioResumen("Guantes","Descartables","10","5","Normal"));} }
