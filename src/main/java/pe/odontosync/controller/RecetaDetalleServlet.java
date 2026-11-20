@@ -11,10 +11,13 @@ import java.sql.SQLException;
 import org.apache.commons.lang3.StringUtils;
 import pe.odontosync.Role;
 import pe.odontosync.User;
+import pe.odontosync.dao.JdbcPacienteDAO;
 import pe.odontosync.dao.JdbcRecetaDAO;
+import pe.odontosync.model.PacienteDetalle;
 import pe.odontosync.model.RecetaResumen;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
+import pe.odontosync.service.PacienteService;
 import pe.odontosync.service.RecetaService;
 
 /** Consulta protegida de una receta médica individual. */
@@ -23,10 +26,12 @@ public final class RecetaDetalleServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
     private transient RecetaService service;
+    private transient PacienteService pacienteService;
 
     @Override
     public void init() {
         service = new RecetaService(new JdbcRecetaDAO());
+        pacienteService = new PacienteService(new JdbcPacienteDAO());
     }
 
     @Override
@@ -37,13 +42,18 @@ public final class RecetaDetalleServlet extends HttpServlet {
 
         try {
             long recipeId = parseId(req.getParameter("id"));
-            long patientId = safePositiveLong(req.getParameter("paciente"));
             RecetaResumen recipe = service.detail(current, recipeId);
+
+            PacienteDetalle patient = pacienteService.findVisible(current, recipe.idPaciente())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "El paciente de esta receta no está disponible para tu perfil."
+                ));
 
             req.setAttribute("user", current);
             req.setAttribute("active", "recetas");
             req.setAttribute("recipe", recipe);
-            req.setAttribute("returnPatientId", patientId);
+            req.setAttribute("recipePatient", patient);
+            req.setAttribute("returnPatientId", recipe.idPaciente());
             req.getRequestDispatcher("/WEB-INF/views/receta-detalle.jsp").forward(req, res);
         } catch (IllegalArgumentException ex) {
             res.sendError(HttpServletResponse.SC_NOT_FOUND, ex.getMessage());
@@ -85,15 +95,6 @@ public final class RecetaDetalleServlet extends HttpServlet {
             return id;
         } catch (NumberFormatException ex) {
             throw new IllegalArgumentException("Selecciona una receta válida.", ex);
-        }
-    }
-
-    private long safePositiveLong(String raw) {
-        try {
-            long id = Long.parseLong(StringUtils.trimToEmpty(raw));
-            return id > 0 ? id : 0;
-        } catch (NumberFormatException ex) {
-            return 0;
         }
     }
 }
