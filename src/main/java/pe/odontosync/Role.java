@@ -39,7 +39,19 @@ public enum Role {
         return module != null && MODULES.containsEntry(this, module);
     }
 
+    /**
+     * Módulos visibles en navegación.
+     * Recetas conserva su permiso interno y sus rutas protegidas, pero se integra
+     * visualmente dentro de Historia clínica para evitar un módulo duplicado.
+     */
     public List<String> modules() {
+        if (this == ODONTOLOGO) {
+            return ImmutableList.copyOf(
+                MODULES.get(this).stream()
+                    .filter(module -> !"recetas".equals(module))
+                    .toList()
+            );
+        }
         return ImmutableList.copyOf(MODULES.get(this));
     }
 

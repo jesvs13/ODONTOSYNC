@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,java.time.LocalDate,java.time.Period,pe.odontosync.model.*" %>
 <%@ include file="layout-top.jspf" %>
-<link rel="stylesheet" href="<%= Html.escape(base) %>/css/pacientes-dialog.css?v=20261024">
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/pacientes-dialog.css?v=20261120-issue29-ux1">
 <%
 List<PacienteDetalle> patients = (List<PacienteDetalle>) request.getAttribute("pacientes");
 PacienteDetalle edit = (PacienteDetalle) request.getAttribute("editPatient");
@@ -17,17 +17,35 @@ boolean editing = edit != null;
 %>
 <div class="page-heading">
   <div>
-    <h1><%= user.role() == pe.odontosync.Role.ODONTOLOGO ? "Mis pacientes" : "Pacientes" %></h1>
-    <p><%= canManage ? "Registra, actualiza y consulta la ficha integral de cada paciente." : "Consulta los pacientes vinculados a tus atenciones." %></p>
+    <h1>
+      <%= file != null
+          ? "Ficha del paciente"
+          : (user.role() == pe.odontosync.Role.ODONTOLOGO ? "Mis pacientes" : "Pacientes") %>
+    </h1>
+    <p>
+      <%= file != null
+          ? "Consulta la información del paciente seleccionado sin duplicar el listado general."
+          : (canManage
+              ? "Registra, actualiza y consulta la ficha integral de cada paciente."
+              : "Consulta los pacientes vinculados a tus atenciones.") %>
+    </p>
   </div>
   <div class="patient-heading-actions">
-    <% if (canManage) { %><button class="btn primary" type="button" data-open-patient-dialog>+ Nuevo paciente</button><% } %>
+    <% if (file != null) { %>
+      <a class="btn secondary"
+         href="<%= Html.escape(base) %>/pacientes<%= query != null && !query.isBlank() ? "?q=" + java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8) : "" %>">
+        ← Volver a <%= user.role() == pe.odontosync.Role.ODONTOLOGO ? "Mis pacientes" : "Pacientes" %>
+      </a>
+    <% } else if (canManage) { %>
+      <button class="btn primary" type="button" data-open-patient-dialog>+ Nuevo paciente</button>
+    <% } %>
   </div>
 </div>
 
 <% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
 <% if (error != null) { %><div class="alert danger"><%= Html.escape(error) %></div><% } %>
 
+<% if (file == null) { %>
 <section class="patient-toolbar">
   <form class="patient-search" action="<%= Html.escape(base) %>/pacientes" method="get" role="search">
     <label for="patient-q">Buscar paciente</label>
@@ -42,6 +60,7 @@ boolean editing = edit != null;
     <span>resultado(s)</span>
   </div>
 </section>
+<% } %>
 
 <% if (canManage) { %>
 <dialog class="crud-card crud-dialog patient-dialog" data-patient-dialog data-auto-open="<%= editing %>">
@@ -195,6 +214,7 @@ boolean editing = edit != null;
 </section>
 <% } %>
 
+<% if (file == null) { %>
 <section class="table-card crud-list patient-list">
   <div class="table-top">
     <div><h2><%= user.role() == pe.odontosync.Role.ODONTOLOGO ? "Pacientes vinculados" : "Pacientes registrados" %></h2><span>La baja es lógica: el historial clínico nunca se elimina.</span></div>
@@ -229,7 +249,14 @@ boolean editing = edit != null;
     </table>
   </div>
 </section>
+<% } %>
 
-<p class="read-only"><%= canManage ? "Administración y Recepción pueden mantener los datos del paciente. Odontología consulta únicamente pacientes vinculados a sus citas." : "Tu perfil es de consulta: los datos administrativos se gestionan desde Administración o Recepción." %></p>
+<p class="read-only">
+  <%= file != null
+      ? "Estás consultando una ficha individual. Usa “Volver” para regresar al listado de pacientes."
+      : (canManage
+          ? "Administración y Recepción pueden mantener los datos del paciente. Odontología consulta únicamente pacientes vinculados a sus citas."
+          : "Tu perfil es de consulta: los datos administrativos se gestionan desde Administración o Recepción.") %>
+</p>
 <script src="<%= Html.escape(base) %>/js/pacientes-dialog.js" defer></script>
 <%@ include file="layout-bottom.jspf" %>
