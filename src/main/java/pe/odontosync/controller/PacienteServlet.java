@@ -35,7 +35,13 @@ public final class PacienteServlet extends HttpServlet {
             req.setAttribute("canManagePatients", service.canManage(current.role()));
             req.setAttribute("canViewClinical", current.role() == pe.odontosync.Role.ODONTOLOGO);
             req.setAttribute("canViewPayments", current.role() == pe.odontosync.Role.ADMINISTRADOR || current.role() == pe.odontosync.Role.RECEPCIONISTA);
-            req.setAttribute("pacientes", service.list(current, query));
+
+            String view = req.getParameter("ver");
+            boolean viewingFile = view != null && !view.isBlank();
+
+            if (!viewingFile) {
+                req.setAttribute("pacientes", service.list(current, query));
+            }
 
             String edit = req.getParameter("editar");
             if (edit != null && !edit.isBlank()) {
@@ -49,8 +55,7 @@ public final class PacienteServlet extends HttpServlet {
                 req.setAttribute("editPatient", selected);
             }
 
-            String view = req.getParameter("ver");
-            if (view != null && !view.isBlank()) {
+            if (viewingFile) {
                 req.setAttribute("patientFile", service.ficha(current, parseId(view)));
             }
 
