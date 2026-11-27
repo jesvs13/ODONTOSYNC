@@ -70,8 +70,7 @@ public final class JdbcPlacaCrudDAO implements PlacaCrudDAO {
              PreparedStatement ps = cn.prepareStatement(PATIENT_VISIBLE)) {
             ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, patientId);
-            ps.setLong(2, clinicId);
-            ps.setLong(3, dentistUserId);
+            bindVisibility(ps, 2, clinicId, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
         }
     }
@@ -96,8 +95,7 @@ public final class JdbcPlacaCrudDAO implements PlacaCrudDAO {
                 ps.setString(8, data.tipoMime());
                 ps.setLong(9, data.tamanoBytes());
                 ps.setLong(10, data.idPaciente());
-                ps.setLong(11, clinicId);
-                ps.setLong(12, dentistUserId);
+                bindVisibility(ps, 11, clinicId, dentistUserId);
                 if (ps.executeUpdate() != 1) {
                     throw new SQLException("Paciente no autorizado para registrar radiografias.", "45000");
                 }
@@ -128,8 +126,7 @@ public final class JdbcPlacaCrudDAO implements PlacaCrudDAO {
              PreparedStatement ps = cn.prepareStatement(FIND_PATIENT)) {
             ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, patientId);
-            ps.setLong(2, clinicId);
-            ps.setLong(3, dentistUserId);
+            bindVisibility(ps, 2, clinicId, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) items.add(map(rs));
             }
@@ -144,8 +141,7 @@ public final class JdbcPlacaCrudDAO implements PlacaCrudDAO {
              PreparedStatement ps = cn.prepareStatement(FIND_ID)) {
             ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setLong(1, plateId);
-            ps.setLong(2, clinicId);
-            ps.setLong(3, dentistUserId);
+            bindVisibility(ps, 2, clinicId, dentistUserId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next() ? map(rs) : null; }
         }
     }
@@ -161,10 +157,16 @@ public final class JdbcPlacaCrudDAO implements PlacaCrudDAO {
             ps.setLong(2, dentistUserId);
             ps.setLong(3, plateId);
             ps.setLong(4, dentistUserId);
-            ps.setLong(5, clinicId);
-            ps.setLong(6, dentistUserId);
+            bindVisibility(ps, 5, clinicId, dentistUserId);
             return ps.executeUpdate() == 1;
         }
+    }
+
+    /** El predicado VISIBLE siempre recibe clínica y usuario, en ese orden. */
+    private static void bindVisibility(PreparedStatement ps, int first,
+                                       long clinicId, long dentistUserId) throws SQLException {
+        ps.setLong(first, clinicId);
+        ps.setLong(first + 1, dentistUserId);
     }
 
     private static PlacaDetalle map(ResultSet rs) throws SQLException {

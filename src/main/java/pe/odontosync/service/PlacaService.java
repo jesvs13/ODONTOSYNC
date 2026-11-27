@@ -1,8 +1,6 @@
 package pe.odontosync.service;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -10,16 +8,11 @@ import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.MemoryCacheImageInputStream;
 import pe.odontosync.Role;
 import pe.odontosync.User;
 import pe.odontosync.dao.PlacaCrudDAO;
@@ -28,13 +21,9 @@ import pe.odontosync.model.PlacaDetalle;
 /** Reglas clínicas y almacenamiento privado de archivos radiográficos. */
 public final class PlacaService {
     private static final int MAX_BYTES = 10 * 1024 * 1024;
-    private static final long MAX_PIXELS = 40_000_000L;
     private static final Set<String> TYPES = Set.of(
         "PANORAMICA", "PERIAPICAL", "BITEWING", "OCLUSAL", "CEFALOMETRICA", "OTRA");
-    private static final Pattern PDF_END = Pattern.compile(
-        "startxref\\s+([0-9]{1,10})\\s+%%EOF[\\x00\\t\\n\\f\\r ]*\\z");
     private static final Pattern STORAGE_KEY = Pattern.compile("rx-[0-9]+\\.(png|jpg|pdf)");
-    private static final byte[] PNG_END = {0,0,0,0,73,69,78,68,(byte)174,66,96,(byte)130};
 
     private final PlacaCrudDAO dao;
     private final Path storage;
@@ -60,13 +49,13 @@ public final class PlacaService {
         }
         String dentalRegion = bounded(region, 100, "La región dental");
         String notes = bounded(observations, 5000, "Las observaciones");
-        String name = validateName(filename);
+        String name = RadiografiaFileValidator.validateName(filename);
         if (bytes == null || bytes.length == 0 || bytes.length > MAX_BYTES) {
             throw new IllegalArgumentException("El archivo debe tener entre 1 byte y 10 MB.");
         }
         byte[] content = bytes.clone();
         String media = clean(mime).toLowerCase(Locale.ROOT);
-        String suffix = validateContent(name, media, content);
+        String suffix = RadiografiaFileValidator.validateContent(name, media, content);
 
         Files.createDirectories(storage);
         Path root = storage.toRealPath();
@@ -158,80 +147,6 @@ public final class PlacaService {
         if (!"ACTIVA".equals(plate.estado())) {
             throw new IllegalArgumentException("La radiografía ya no está activa.");
         }
-    }
-
-    private String validateName(String raw) {
-        String name = clean(raw);
-        if (name.isEmpty() || name.length() > 255 || name.startsWith(".")
-            || name.contains("..") || name.matches("(?s).*[\\\\/:*?\"<>|\\p{Cntrl}].*")) {
-            throw new IllegalArgumentException("Nombre de archivo no válido.");
-        }
-        return name;
-    }
-
-    private String validateContent(String name, String mime, byte[] bytes) {
-        String lower = name.toLowerCase(Locale.ROOT);
-        if ("image/png".equals(mime) && lower.endsWith(".png")) {
-            if (!endsWith(bytes, PNG_END)) throw invalidFile();
-            validateImage(bytes, "png");
-            return ".png";
-        }
-        if ("image/jpeg".equals(mime) && (lower.endsWith(".jpg") || lower.endsWith(".jpeg"))) {
-            if (!endsWith(bytes, new byte[]{(byte)255, (byte)217})) throw invalidFile();
-            validateImage(bytes, "jpeg");
-            return ".jpg";
-        }
-        if ("application/pdf".equals(mime) && lower.endsWith(".pdf")) {
-            validatePdf(bytes);
-            return ".pdf";
-        }
-        throw invalidFile();
-    }
-
-    private boolean endsWith(byte[] bytes, byte[] tail) {
-        if (bytes.length < tail.length) return false;
-        for (int i = 0; i < tail.length; i++) {
-            if (bytes[bytes.length - tail.length + i] != tail[i]) return false;
-        }
-        return true;
-    }
-
-    private void validateImage(byte[] bytes, String format) {
-        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
-            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) throw invalidFile();
-            ImageReader reader = readers.next();
-            try {
-                if (!format.equalsIgnoreCase(reader.getFormatName())) throw invalidFile();
-                reader.setInput(input, true, true);
-                int width = reader.getWidth(0), height = reader.getHeight(0);
-                if (width <= 0 || height <= 0 || (long)width * height > MAX_PIXELS) throw invalidFile();
-                if (reader.read(0) == null) throw invalidFile();
-            } finally {
-                reader.dispose();
-            }
-        } catch (IOException ex) {
-            throw invalidFile();
-        }
-    }
-
-    // Comprobación estructural inicial, no sustituye un parser ni un análisis de seguridad PDF.
-    private void validatePdf(byte[] bytes) {
-        String text = new String(bytes, StandardCharsets.ISO_8859_1);
-        if (!text.matches("(?s)%PDF-(1\\.[0-7]|2\\.0)[\\r\\n].*")) throw invalidFile();
-        Matcher end = PDF_END.matcher(text.substring(Math.max(0, text.length() - 4096)));
-        if (!end.find()) throw invalidFile();
-        long offset = Long.parseLong(end.group(1));
-        if (offset < 9 || offset >= text.length()) throw invalidFile();
-        int start = (int)offset;
-        String section = text.substring(start, Math.min(start + 4096, text.length()));
-        boolean classic = section.startsWith("xref") && text.indexOf("trailer", start) >= 0;
-        boolean stream = section.matches("(?s)^[0-9]+\\s+[0-9]+\\s+obj\\b.*?/Type\\s*/XRef\\b.*");
-        if (!classic && !stream) throw invalidFile();
-    }
-
-    private IllegalArgumentException invalidFile() {
-        return new IllegalArgumentException("El contenido del archivo no corresponde a un JPG, PNG o PDF válido.");
     }
 
     private String clean(String raw) {
