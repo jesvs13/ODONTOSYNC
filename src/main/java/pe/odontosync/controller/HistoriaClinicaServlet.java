@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import org.apache.commons.lang3.StringUtils;
 import pe.odontosync.Role;
+import pe.odontosync.config.RadiografiaConfig;
 import pe.odontosync.User;
 import pe.odontosync.dao.JdbcClinicaAtencionDAO;
 import pe.odontosync.dao.JdbcRecetaDAO;
@@ -49,7 +50,13 @@ public final class HistoriaClinicaServlet extends HttpServlet {
                     "patientRecipes",
                     recetaService.historyForPatient(current, patientId)
                 );
-                req.setAttribute("historyTab", normalizeTab(value(req, "tab")));
+                String tab = normalizeTab(value(req, "tab"));
+                var radiographs = RadiografiaConfig.service().historyForPatient(current, patientId);
+                req.setAttribute("patientRadiographs", radiographs);
+                if ("radiografias".equals(tab)) {
+                    AuditLog.businessChange(current, "LIST", "RADIOGRAFIAS_PACIENTE", patientId);
+                }
+                req.setAttribute("historyTab", tab);
             }
 
             loadFlashMessages(req);
@@ -233,6 +240,7 @@ public final class HistoriaClinicaServlet extends HttpServlet {
             case "antecedentes" -> "antecedentes";
             case "consultas" -> "consultas";
             case "recetas" -> "recetas";
+            case "radiografias" -> "radiografias";
             default -> "resumen";
         };
     }

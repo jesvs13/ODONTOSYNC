@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,java.net.URLEncoder,java.nio.charset.StandardCharsets,pe.odontosync.model.*" %>
 <%@ include file="layout-top.jspf" %>
-<link rel="stylesheet" href="<%= Html.escape(base) %>/css/historias-ui.css?v=20261120-issue29-ux3">
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/historias-ui.css?v=31-2">
 <%
 List<HistoriaPacienteResumen> items =
     (List<HistoriaPacienteResumen>) request.getAttribute("historyList");
@@ -9,6 +9,9 @@ HistoriaPacienteVista view =
     (HistoriaPacienteVista) request.getAttribute("historyView");
 List<RecetaResumen> patientRecipes =
     (List<RecetaResumen>) request.getAttribute("patientRecipes");
+List<PlacaDetalle> patientRadiographs = (List<PlacaDetalle>) request.getAttribute("patientRadiographs");
+if (patientRadiographs == null) patientRadiographs = List.of();
+long activeRadiographs = patientRadiographs.stream().filter(rx -> "ACTIVA".equals(rx.estado())).count();
 String query = (String) request.getAttribute("historyQuery");
 String success = (String) request.getAttribute("success");
 String error = (String) request.getAttribute("error");
@@ -19,7 +22,7 @@ if (historyTab == null) historyTab = "resumen";
 <div class="page-heading clinical-page-heading">
   <div>
     <h1>Historia clínica</h1>
-    <p>Consulta la evolución clínica, antecedentes, alergias y recetas de tus pacientes en un solo lugar.</p>
+    <p>Consulta la evolución clínica, antecedentes, alergias, recetas y radiografías de tus pacientes en un solo lugar.</p>
   </div>
 
   <% if (view != null) { %>
@@ -226,6 +229,10 @@ if (historyTab == null) historyTab = "resumen";
     Recetas
     <span><%= patientRecipes == null ? 0 : patientRecipes.size() %></span>
   </a>
+  <a class="<%= "radiografias".equals(historyTab) ? "active" : "" %>"
+     href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&amp;tab=radiografias">
+    Radiografías <span><%= activeRadiographs %></span>
+  </a>
 </nav>
 
 <% if ("resumen".equals(historyTab)) {
@@ -263,6 +270,11 @@ if (historyTab == null) historyTab = "resumen";
       <span>Recetas</span>
       <strong><%= patientRecipes == null ? 0 : patientRecipes.size() %></strong>
       <small>Prescripciones emitidas</small>
+    </article>
+    <article>
+      <span>Radiografías</span>
+      <strong><%= activeRadiographs %></strong>
+      <small>Registros activos</small>
     </article>
   </div>
 
@@ -711,6 +723,128 @@ if (historyTab == null) historyTab = "resumen";
     </div>
   </form>
 </dialog>
+<% } %>
+
+<% if ("radiografias".equals(historyTab)) { %>
+<section class="patient-section clinical-tab-card">
+  <div class="section-title">
+    <div><span>IMÁGENES CLÍNICAS</span><h3>Radiografías registradas</h3></div>
+    <button class="btn primary" type="button" data-open-clinical-dialog="radiograph">+ Registrar radiografía</button>
+  </div>
+  <div class="rx-list">
+    <% for (PlacaDetalle rx : patientRadiographs) {
+         boolean activeRx = "ACTIVA".equals(rx.estado());
+         String rxUrl = base + "/modulo/placas/archivo?id=" + rx.idPlaca();
+    %>
+      <article class="rx-card">
+        <div class="rx-card-heading">
+          <div class="rx-file-symbol" aria-hidden="true"><%= "application/pdf".equals(rx.tipoMime()) ? "PDF" : "RX" %></div>
+          <div class="rx-card-title">
+            <strong><%= Html.escape(rx.tipoRadiografia()) %></strong>
+            <small><%= rx.fechaRadiografia() %><%= rx.regionDental() == null || rx.regionDental().isBlank() ? "" : " · " + Html.escape(rx.regionDental()) %></small>
+          </div>
+          <span class="status-pill <%= activeRx ? "" : "status-inactive" %>"><%= Html.escape(rx.estado()) %></span>
+        </div>
+        <p class="rx-filename"><%= Html.escape(rx.nombreArchivo()) %></p>
+        <% if (activeRx) { %>
+        <div class="rx-actions">
+          <button class="btn tiny primary" type="button" data-rx-view
+            data-rx-title="<%= Html.escape(rx.tipoRadiografia()) %>"
+            data-rx-date="<%= rx.fechaRadiografia() %>"
+            data-rx-region="<%= Html.escape(rx.regionDental()) %>"
+            data-rx-notes="<%= Html.escape(rx.observaciones()) %>"
+            data-rx-mime="<%= Html.escape(rx.tipoMime()) %>"
+            data-rx-url="<%= Html.escape(rxUrl) %>">Ver radiografía</button>
+          <a class="btn tiny secondary" href="<%= Html.escape(rxUrl) %>">Descargar</a>
+          <% if (rx.idUsuario() == user.id()) { %>
+          <button class="btn tiny danger-btn" type="button" data-rx-annul="<%= rx.idPlaca() %>">Anular</button>
+          <% } %>
+        </div>
+        <% } else { %>
+        <small class="rx-annulled">Registro conservado por trazabilidad. Archivo no disponible para consulta.</small>
+        <% } %>
+      </article>
+    <% } %>
+    <% if (patientRadiographs.isEmpty()) { %>
+      <p class="empty-note">Todavía no existen radiografías registradas para este paciente.</p>
+    <% } %>
+  </div>
+</section>
+
+<dialog class="crud-card crud-dialog clinical-dialog rx-dialog" data-clinical-dialog="radiograph" aria-labelledby="rx-create-title">
+  <div class="crud-head">
+    <div><span class="clinical-dialog-eyebrow">RADIOGRAFÍAS</span><h2 id="rx-create-title">Registrar radiografía</h2>
+      <p>Paciente: <strong><%= Html.escape(p.nombreCompleto()) %></strong></p></div>
+    <button class="btn secondary" type="button" data-close-clinical-dialog>Cerrar</button>
+  </div>
+  <form class="crud-form" method="post" enctype="multipart/form-data" data-rx-upload-form action="<%= Html.escape(base) %>/modulo/placas?paciente=<%= p.id() %>">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="crear">
+    <input type="hidden" name="id_paciente" value="<%= p.id() %>">
+    <label>Tipo de radiografía
+      <select name="tipo_radiografia" required>
+        <option value="">Seleccionar tipo</option><option value="PANORAMICA">Panorámica</option>
+        <option value="PERIAPICAL">Periapical</option><option value="BITEWING">Bitewing</option>
+        <option value="OCLUSAL">Oclusal</option><option value="CEFALOMETRICA">Cefalométrica</option><option value="OTRA">Otra</option>
+      </select>
+    </label>
+    <label>Fecha de radiografía
+      <input type="date" name="fecha_radiografia" required max="<%= java.time.LocalDate.now() %>" value="<%= java.time.LocalDate.now() %>">
+    </label>
+    <label class="span-2">Pieza dental o región (opcional)
+      <input name="region_dental" maxlength="100" placeholder="Ej. Pieza 36">
+    </label>
+    <label class="span-2">Archivo radiográfico
+      <input type="file" name="archivo" required accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" aria-describedby="rx-upload-help rx-upload-error">
+      <small id="rx-upload-help">JPG, JPEG, PNG o PDF. Máximo 10 MB.</small>
+      <span id="rx-upload-error" class="rx-upload-error" role="alert" hidden></span>
+    </label>
+    <label class="span-2">Observaciones clínicas (opcional)
+      <textarea name="observaciones" maxlength="5000" rows="4"></textarea>
+    </label>
+    <div class="form-actions">
+      <button class="btn secondary" type="button" data-close-clinical-dialog>Cancelar</button>
+      <button class="btn primary" type="submit">Registrar radiografía</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="crud-card crud-dialog clinical-dialog rx-view-dialog" data-rx-view-dialog aria-labelledby="rx-view-title">
+  <div class="crud-head">
+    <div><span class="clinical-dialog-eyebrow">RADIOGRAFÍA REGISTRADA</span><h2 id="rx-view-title" data-rx-field="title">Radiografía</h2>
+      <p><%= Html.escape(p.nombreCompleto()) %> · <span data-rx-field="date"></span></p></div>
+    <button class="btn secondary" type="button" data-rx-close>Cerrar</button>
+  </div>
+  <div class="rx-image-controls" data-rx-controls hidden>
+    <button class="btn tiny secondary" type="button" data-rx-command="out" aria-label="Alejar imagen">−</button>
+    <span data-rx-zoom>100 %</span>
+    <button class="btn tiny secondary" type="button" data-rx-command="in" aria-label="Acercar imagen">+</button>
+    <button class="btn tiny secondary" type="button" data-rx-command="rotate">Girar 90°</button>
+    <button class="btn tiny secondary" type="button" data-rx-command="reset">Restablecer</button>
+    <button class="btn tiny secondary" type="button" data-rx-command="expand">Ampliar</button>
+  </div>
+  <div class="rx-viewport" data-rx-viewport hidden>
+    <div class="rx-stage" data-rx-stage><img data-rx-image alt="Radiografía del paciente"></div>
+  </div>
+  <p class="rx-message" data-rx-message role="status"></p>
+  <div class="rx-detail"><strong>Región dental</strong><p data-rx-field="region"></p></div>
+  <div class="rx-detail"><strong>Observaciones clínicas</strong><p data-rx-field="notes"></p></div>
+  <div class="form-actions"><a class="btn primary" data-rx-download>Descargar original</a></div>
+</dialog>
+
+<dialog class="crud-card crud-dialog clinical-dialog rx-dialog" data-rx-annul-dialog aria-labelledby="rx-annul-title">
+  <div class="crud-head"><div><h2 id="rx-annul-title">Anular radiografía</h2><p>Se conservará el registro y su archivo original.</p></div>
+    <button class="btn secondary" type="button" data-rx-close>Cerrar</button></div>
+  <form class="crud-form" method="post" action="<%= Html.escape(base) %>/modulo/placas">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="anular">
+    <input type="hidden" name="id_paciente" value="<%= p.id() %>">
+    <input type="hidden" name="id_placa" data-rx-annul-id>
+    <label class="span-2">Motivo de anulación<textarea name="motivo" required maxlength="500" rows="4"></textarea></label>
+    <div class="form-actions"><button class="btn secondary" type="button" data-rx-close>Cancelar</button><button class="btn danger-btn" type="submit">Confirmar anulación</button></div>
+  </form>
+</dialog>
+<script src="<%= Html.escape(base) %>/js/radiografias-ui.js?v=31-2" defer></script>
 <% } %>
 
 <p class="read-only clinical-scope-note">

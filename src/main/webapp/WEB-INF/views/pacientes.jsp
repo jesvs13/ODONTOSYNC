@@ -193,11 +193,9 @@ boolean editing = edit != null;
     </article>
 
     <article class="patient-section">
-      <div class="section-title"><div><span>ARCHIVOS</span><h3>Placas radiográficas</h3></div><span><%= file.placas().size() %></span></div>
-      <div class="stack-list">
-      <% for (PacientePlacaDetalle x : file.placas()) { %><div class="stack-item"><strong><%= Html.escape(x.fecha()) %></strong><span><%= Html.escape(x.archivo()) %></span><small><%= Html.escape(x.url()) %></small></div><% } %>
-      <% if (file.placas().isEmpty()) { %><p class="empty-note">Sin placas registradas.</p><% } %>
-      </div>
+      <div class="section-title"><div><span>ARCHIVOS</span><h3>Radiografías</h3></div></div>
+      <p class="empty-note">Consulta el historial radiográfico protegido en Historia clínica.</p>
+      <a class="btn tiny secondary" href="<%= Html.escape(base) %>/historias?paciente=<%= p.id() %>&amp;tab=radiografias">Abrir radiografías</a>
     </article>
     <% } %>
 
