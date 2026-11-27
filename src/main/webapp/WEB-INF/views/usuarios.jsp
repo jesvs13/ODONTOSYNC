@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,pe.odontosync.Role,pe.odontosync.model.UsuarioDetalle" %>
 <%@ include file="layout-top.jspf" %>
-<link rel="stylesheet" href="<%= Html.escape(base) %>/css/usuarios-ui.css?v=20261120-issue29-ux1">
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/usuarios-ui.css?v=20261127-issue33-1">
 <%
 List<UsuarioDetalle> users = (List<UsuarioDetalle>) request.getAttribute("usuarios");
 UsuarioDetalle edit = (UsuarioDetalle) request.getAttribute("editUser");
@@ -159,14 +159,28 @@ if (users != null) {
              value="<%= Html.escape(editing ? edit.nombres() : "") %>">
     </label>
 
-    <label>Apellidos
-      <input name="apellidos" maxlength="100" required
-             value="<%= Html.escape(editing ? edit.apellidos() : "") %>">
-    </label>
+    <% if (editing) { %>
+      <label>Apellidos
+        <input name="apellidos" maxlength="100" required value="<%= Html.escape(edit.apellidos()) %>">
+      </label>
+    <% } else { %>
+      <label>Primer apellido
+        <input name="primer_apellido" maxlength="100" required>
+      </label>
+      <label>Segundo apellido
+        <input name="segundo_apellido" maxlength="100" placeholder="Opcional">
+      </label>
+    <% } %>
 
-    <label>Correo electrónico
-      <input type="email" name="correo" maxlength="150" required
-             value="<%= Html.escape(editing ? edit.correo() : "") %>">
+    <label class="span-2">Correo institucional
+      <input type="email" name="correo" readonly data-institutional-email
+             value="<%= Html.escape(editing ? edit.correo() : "") %>"
+             placeholder="Se genera con los nombres y apellidos">
+      <% if (editing) { %>
+        <small>El correo de acceso se conserva al editar los datos.</small>
+      <% } else { %>
+        <small data-email-status role="status" aria-live="polite">Completa los nombres y apellidos.</small>
+      <% } %>
     </label>
 
     <label>Teléfono
@@ -229,5 +243,5 @@ if (users != null) {
   Al crear un usuario con rol Odontólogo también se crea o vincula su perfil profesional. Todas las cuentas de esta vista pertenecen a la clínica de la sesión.
 </p>
 
-<script src="<%= Html.escape(base) %>/js/usuarios-ui.js?v=20261120-issue29-ux1" defer></script>
+<script src="<%= Html.escape(base) %>/js/usuarios-ui.js?v=20261127-issue33-2" defer></script>
 <%@ include file="layout-bottom.jspf" %>

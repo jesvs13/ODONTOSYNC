@@ -135,15 +135,11 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
     }
 
     @Override
-    public boolean emailExists(long clinicId, String email, Long excludeUserId) throws SQLException {
-        String sql = "SELECT 1 FROM usuarios WHERE id_clinica = ? AND correo = ?"
-            + (excludeUserId == null ? "" : " AND id_usuario <> ?") + " LIMIT 1";
+    public boolean emailExistsGlobally(String email) throws SQLException {
         try (Connection cn = DatabaseConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
+             PreparedStatement ps = cn.prepareStatement("SELECT 1 FROM usuarios WHERE correo = ? LIMIT 1")) {
             ps.setQueryTimeout(8);
-            ps.setLong(1, clinicId);
-            ps.setString(2, email);
-            if (excludeUserId != null) ps.setLong(3, excludeUserId);
+            ps.setString(1, email);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
         }
     }
