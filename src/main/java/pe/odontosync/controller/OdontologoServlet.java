@@ -23,6 +23,7 @@ import pe.odontosync.dao.JdbcOdontologoDAO;
 import pe.odontosync.model.OdontologoDetalle;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
+import pe.odontosync.security.SecurityHeaders;
 import pe.odontosync.service.OdontologoService;
 
 /**
@@ -84,6 +85,9 @@ public final class OdontologoServlet extends HttpServlet {
             loadEditDentist(req, res, current);
             loadFlashMessages(req);
 
+            if (res.isCommitted()) return;
+            res.setHeader("Content-Security-Policy", SecurityHeaders.values().get("Content-Security-Policy")
+                + "; connect-src 'self'");
             req.getRequestDispatcher(VIEW_ODONTOLOGOS)
                 .forward(req, res);
 
@@ -150,6 +154,10 @@ public final class OdontologoServlet extends HttpServlet {
             return;
         }
 
+        if ("sugerir-correo".equals(value(req, "accion"))) {
+            suggestEmail(req, res, current);
+            return;
+        }
         char[] password = value(req, "clave").toCharArray();
 
         try {
@@ -181,6 +189,28 @@ public final class OdontologoServlet extends HttpServlet {
         if (!res.isCommitted()) {
             redirect(req, res, PATH_ODONTOLOGOS);
         }
+    }
+
+    private void suggestEmail(HttpServletRequest req, HttpServletResponse res, User current) {
+        res.setContentType("text/plain; charset=UTF-8");
+        try {
+            String email = service.suggestEmail(current, value(req, "nombres"),
+                value(req, "primer_apellido"), value(req, "segundo_apellido"));
+            res.getWriter().write(email);
+        } catch (IllegalArgumentException ex) {
+            writeSuggestionError(res, 400, ex.getMessage());
+        } catch (SQLException ex) {
+            AppLog.error("Fallo consultando disponibilidad de correo", ex);
+            writeSuggestionError(res, 503, "No se pudo consultar la disponibilidad del correo.");
+        } catch (IOException ex) {
+            AppLog.error("Fallo enviando sugerencia de correo", ex);
+        }
+    }
+
+    private void writeSuggestionError(HttpServletResponse res, int status, String message) {
+        res.setStatus(status);
+        try { res.getWriter().write(message); }
+        catch (IOException ex) { AppLog.error("Fallo enviando error de correo", ex); }
     }
 
     private void processAction(
@@ -228,8 +258,8 @@ public final class OdontologoServlet extends HttpServlet {
         long id = service.create(
             current,
             value(req, "nombres"),
-            value(req, "apellidos"),
-            value(req, "correo"),
+            value(req, "primer_apellido"),
+            value(req, "segundo_apellido"),
             value(req, "telefono"),
             password,
             value(req, "colegiatura"),
@@ -292,7 +322,7 @@ public final class OdontologoServlet extends HttpServlet {
         flash(
             req,
             ATTR_SUCCESS,
-            "Perfil profesional y cuenta de acceso actualizados correctamente."
+            "Perfil profesional actualizado correctamente."
         );
     }
 
