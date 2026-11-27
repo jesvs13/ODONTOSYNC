@@ -16,10 +16,10 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 <div class="page-heading">
   <div>
     <h1>Odontólogos</h1>
-    <p>Directorio profesional, cuenta de acceso, especialidades y estado del equipo clínico.</p>
+    <p>Directorio profesional, especialidades y estado del equipo clínico.</p>
   </div>
   <div class="dentist-heading-actions">
-    <% if (canManage) { %><button class="btn primary" type="button" data-open-dentist-dialog>+ Nuevo odontólogo</button><% } %>
+    <% if (canManage) { if (editing) { %><a class="btn primary" href="<%= Html.escape(base) %>/odontologos">+ Nuevo odontólogo</a><% } else { %><button class="btn primary" type="button" data-open-dentist-dialog>+ Nuevo odontólogo</button><% } } %>
   </div>
 </div>
 
@@ -43,12 +43,12 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
   <div class="crud-head">
     <div>
       <h2><%= editing ? "Editar odontólogo" : "Registrar odontólogo" %></h2>
-      <p><%= editing ? "Actualiza el perfil profesional y su cuenta de acceso." : "Crea el perfil profesional y una cuenta OdontoSync con rol Odontólogo." %></p>
+      <p><%= editing ? "Actualiza los datos profesionales. Las credenciales se gestionan en Usuarios." : "Crea el perfil profesional y una cuenta OdontoSync con rol Odontólogo." %></p>
     </div>
     <a class="btn secondary" href="<%= Html.escape(base) %>/odontologos">Cancelar</a>
   </div>
 
-  <form class="crud-form dentist-form" action="<%= Html.escape(base) %>/odontologos" method="post" autocomplete="off">
+  <form class="crud-form dentist-form" action="<%= Html.escape(base) %>/odontologos" method="post" <%= editing ? "" : "data-institutional-form" %> autocomplete="off">
     <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
     <input type="hidden" name="accion" value="<%= editing ? "actualizar" : "crear" %>">
     <% if (editing) { %><input type="hidden" name="id_odontologo" value="<%= edit.idOdontologo() %>"><% } %>
@@ -56,11 +56,22 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
     <label>Nombres
       <input name="nombres" maxlength="100" required value="<%= Html.escape(editing ? edit.nombres() : "") %>">
     </label>
-    <label>Apellidos
-      <input name="apellidos" maxlength="100" required value="<%= Html.escape(editing ? edit.apellidos() : "") %>">
-    </label>
-    <label>Correo de acceso
-      <input type="email" name="correo" maxlength="150" required value="<%= Html.escape(editing ? edit.correo() : "") %>">
+    <% if (editing) { %>
+      <label>Apellidos
+        <input name="apellidos" maxlength="100" required value="<%= Html.escape(edit.apellidos()) %>">
+      </label>
+    <% } else { %>
+      <label>Primer apellido
+        <input name="primer_apellido" maxlength="100" required>
+      </label>
+      <label>Segundo apellido
+        <input name="segundo_apellido" maxlength="100" placeholder="Opcional">
+      </label>
+    <% } %>
+    <label class="span-2">Correo institucional
+      <input type="email" name="correo" readonly data-institutional-email value="<%= Html.escape(editing ? edit.correo() : "") %>" placeholder="Se genera con los nombres y apellidos">
+      <% if (editing) { %><small>El correo de acceso se conserva al editar el perfil.</small>
+      <% } else { %><small data-email-status role="status" aria-live="polite">Completa los nombres y apellidos.</small><% } %>
     </label>
     <label>Teléfono
       <input name="telefono" maxlength="20" value="<%= Html.escape(editing && edit.telefono() != null ? edit.telefono() : "") %>">
@@ -77,12 +88,16 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
         <option value="ACTIVO" <%= "ACTIVO".equals(selectedStatus) ? "selected" : "" %>>ACTIVO</option>
         <option value="INACTIVO" <%= "INACTIVO".equals(selectedStatus) ? "selected" : "" %>>INACTIVO</option>
       </select>
-      <small>Al inactivar también se bloquea su ingreso y se desactivan sus horarios.</small>
+      <small>Al inactivar se deshabilita el acceso activo y los horarios. Para habilitar el acceso tras reactivar, utiliza Usuarios.</small>
     </label>
-    <label>Contraseña
-      <input type="password" name="clave" maxlength="72" <%= editing ? "" : "required" %>>
-      <small><%= editing ? "Déjala vacía para conservar la actual." : "Mínimo 8 caracteres, con mayúscula, minúscula y número." %></small>
-    </label>
+    <% if (!editing) { %>
+      <label>Contraseña inicial
+        <input type="password" name="clave" maxlength="72" required autocomplete="new-password">
+        <small>Mínimo 8 caracteres, con mayúscula, minúscula y número.</small>
+      </label>
+    <% } else { %>
+      <p class="span-2 read-only">Para gestionar la contraseña o el bloqueo de acceso, utiliza <a href="<%= Html.escape(base) %>/usuarios?editar=<%= edit.idUsuario() %>">Usuarios</a>.</p>
+    <% } %>
 
     <fieldset class="specialty-field span-2">
       <legend>Especialidades</legend>
@@ -106,7 +121,7 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 
 <section class="table-card crud-list dentist-list">
   <div class="table-top">
-    <div><h2>Equipo odontológico</h2><span><%= canManage ? "Administración mantiene perfiles y cuentas vinculadas." : "Vista de consulta para Recepción." %></span></div>
+    <div><h2>Equipo odontológico</h2><span><%= canManage ? "Administración gestiona los perfiles profesionales y sus especialidades." : "Vista de consulta para Recepción." %></span></div>
   </div>
   <div class="table-scroll">
     <table>
@@ -141,4 +156,5 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 
 <p class="read-only"><%= canManage ? "La baja es lógica: citas, historias y atenciones anteriores nunca se eliminan." : "Recepción puede consultar profesionales y sus datos de contacto; la edición corresponde a Administración." %></p>
 <script src="<%= Html.escape(base) %>/js/odontologos-dialog.js" defer></script>
+<script src="<%= Html.escape(base) %>/js/correo-institucional-ui.js?v=20261127-1" defer></script>
 <%@ include file="layout-bottom.jspf" %>

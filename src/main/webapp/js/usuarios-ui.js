@@ -28,22 +28,6 @@
     });
   }
 
-  const role = document.querySelector('[data-user-role]');
-  const collegiaturaField = document.querySelector('[data-collegiatura-field]');
-  const collegiaturaInput = collegiaturaField?.querySelector('input[name="colegiatura"]');
-
-  function syncProfessionalField() {
-    if (!role || !colegiaturaField || !colegiaturaInput) return;
-
-    const isDentist = role.value === 'ODONTOLOGO';
-    collegiaturaField.classList.toggle('users-field-muted', !isDentist);
-    collegiaturaInput.required = isDentist;
-    collegiaturaInput.setAttribute('aria-required', String(isDentist));
-  }
-
-  role?.addEventListener('change', syncProfessionalField);
-  syncProfessionalField();
-
   document.querySelectorAll('[data-user-delete-form]').forEach((form) => {
     form.addEventListener('submit', (event) => {
       const confirmed = window.confirm(

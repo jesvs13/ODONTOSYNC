@@ -10,7 +10,7 @@ import pe.odontosync.model.UsuarioDetalle;
 public interface UsuarioCrudDAO {
     List<UsuarioDetalle> findDetailedByClinic(long clinicId) throws SQLException;
     Optional<UsuarioDetalle> findDetailedById(long clinicId, long userId) throws SQLException;
-    boolean emailExists(long clinicId, String email, Long excludeUserId) throws SQLException;
+    boolean emailExistsGlobally(String email) throws SQLException;
     long countActiveAdministrators(long clinicId) throws SQLException;
 
     long create(

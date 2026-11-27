@@ -1,13 +1,14 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,pe.odontosync.Role,pe.odontosync.model.UsuarioDetalle" %>
 <%@ include file="layout-top.jspf" %>
-<link rel="stylesheet" href="<%= Html.escape(base) %>/css/usuarios-ui.css?v=20261120-issue29-ux1">
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/usuarios-ui.css?v=20261127-issue33-1">
 <%
 List<UsuarioDetalle> users = (List<UsuarioDetalle>) request.getAttribute("usuarios");
 UsuarioDetalle edit = (UsuarioDetalle) request.getAttribute("editUser");
 String success = (String) request.getAttribute("success");
 String error = (String) request.getAttribute("error");
 boolean editing = edit != null;
+boolean professional = editing && (edit.role() == Role.ODONTOLOGO || edit.numeroColegiatura() != null);
 
 int totalUsers = users == null ? 0 : users.size();
 int activeUsers = 0;
@@ -110,8 +111,8 @@ if (users != null) {
           <td><%= Html.escape(item.numeroColegiatura() == null ? "—" : item.numeroColegiatura()) %></td>
           <td>
             <div class="row-actions users-row-actions">
-              <a class="btn tiny secondary" href="<%= Html.escape(base) %>/usuarios?editar=<%= item.id() %>">Editar</a>
-              <% if (item.id() != user.id()) { %>
+              <a class="btn tiny secondary" href="<%= Html.escape(base) %>/usuarios?editar=<%= item.id() %>"><%= item.role() == Role.ODONTOLOGO || item.numeroColegiatura() != null ? "Gestionar acceso" : "Editar" %></a>
+              <% if (item.id() != user.id() && item.role() != Role.ODONTOLOGO && item.numeroColegiatura() == null) { %>
               <form action="<%= Html.escape(base) %>/usuarios" method="post" data-user-delete-form>
                 <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
                 <input type="hidden" name="accion" value="eliminar">
@@ -138,10 +139,10 @@ if (users != null) {
   <div class="crud-head users-dialog-head">
     <div>
       <span class="users-dialog-eyebrow">ACCESO Y ROLES</span>
-      <h2><%= editing ? "Editar usuario" : "Registrar usuario" %></h2>
+      <h2><%= professional ? "Gestionar acceso" : editing ? "Editar usuario" : "Registrar usuario" %></h2>
       <p><%= editing
-          ? "Modifica los datos de la cuenta seleccionada."
-          : "Crea una cuenta para administración, recepción u odontología." %></p>
+          ? (professional ? "Gestiona el estado de acceso y la contraseña del profesional." : "Modifica los datos de la cuenta seleccionada.")
+          : "Crea una cuenta para administración o recepción." %></p>
     </div>
     <a class="btn secondary" href="<%= Html.escape(base) %>/usuarios">Cerrar</a>
   </div>
@@ -149,35 +150,50 @@ if (users != null) {
   <form class="crud-form users-form"
         action="<%= Html.escape(base) %>/usuarios"
         method="post"
+        <%= editing ? "" : "data-institutional-form" %>
         autocomplete="off">
     <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
     <input type="hidden" name="accion" value="<%= editing ? "actualizar" : "crear" %>">
     <% if (editing) { %><input type="hidden" name="id_usuario" value="<%= edit.id() %>"><% } %>
 
     <label>Nombres
-      <input name="nombres" maxlength="100" required
+      <input name="nombres" maxlength="100" required <%= professional ? "readonly" : "" %>
              value="<%= Html.escape(editing ? edit.nombres() : "") %>">
     </label>
 
-    <label>Apellidos
-      <input name="apellidos" maxlength="100" required
-             value="<%= Html.escape(editing ? edit.apellidos() : "") %>">
-    </label>
+    <% if (editing) { %>
+      <label>Apellidos
+        <input name="apellidos" maxlength="100" required <%= professional ? "readonly" : "" %> value="<%= Html.escape(edit.apellidos()) %>">
+      </label>
+    <% } else { %>
+      <label>Primer apellido
+        <input name="primer_apellido" maxlength="100" required>
+      </label>
+      <label>Segundo apellido
+        <input name="segundo_apellido" maxlength="100" placeholder="Opcional">
+      </label>
+    <% } %>
 
-    <label>Correo electrónico
-      <input type="email" name="correo" maxlength="150" required
-             value="<%= Html.escape(editing ? edit.correo() : "") %>">
+    <label class="span-2">Correo institucional
+      <input type="email" name="correo" readonly data-institutional-email
+             value="<%= Html.escape(editing ? edit.correo() : "") %>"
+             placeholder="Se genera con los nombres y apellidos">
+      <% if (editing) { %>
+        <small>El correo de acceso se conserva al editar los datos.</small>
+      <% } else { %>
+        <small data-email-status role="status" aria-live="polite">Completa los nombres y apellidos.</small>
+      <% } %>
     </label>
 
     <label>Teléfono
-      <input name="telefono" maxlength="20"
+      <input name="telefono" maxlength="20" <%= professional ? "readonly" : "" %>
              value="<%= Html.escape(editing && edit.telefono() != null ? edit.telefono() : "") %>"
              placeholder="Opcional">
     </label>
 
     <label>Rol
       <select name="rol" required data-user-role>
-        <% for (Role r : Role.values()) {
+        <% for (Role r : (professional ? List.of(edit.role()) : List.of(Role.ADMINISTRADOR, Role.RECEPCIONISTA))) {
              boolean selected = editing ? edit.role() == r : r == Role.RECEPCIONISTA; %>
           <option value="<%= r.name() %>" <%= selected ? "selected" : "" %>>
             <%= Html.escape(r.label()) %>
@@ -198,12 +214,12 @@ if (users != null) {
       <% } %>
     </label>
 
-    <label data-collegiatura-field>
-      N.º colegiatura
-      <input name="colegiatura" maxlength="50"
-             value="<%= Html.escape(editing && edit.numeroColegiatura() != null ? edit.numeroColegiatura() : "") %>">
-      <small>Obligatorio únicamente si el rol es Odontólogo.</small>
-    </label>
+    <% if (professional) { %>
+      <div class="users-security-note span-2">
+        <strong>Datos profesionales</strong>
+        <span>Los datos personales, la colegiatura y las especialidades se gestionan desde <a href="<%= Html.escape(base) %>/odontologos">Odontólogos</a>. Para habilitar una cuenta, el perfil profesional debe estar activo.</span>
+      </div>
+    <% } %>
 
     <label>Contraseña
       <input type="password" name="clave" maxlength="72" <%= editing ? "" : "required" %>
@@ -226,8 +242,9 @@ if (users != null) {
 </dialog>
 
 <p class="read-only users-scope-note">
-  Al crear un usuario con rol Odontólogo también se crea o vincula su perfil profesional. Todas las cuentas de esta vista pertenecen a la clínica de la sesión.
+  Registra a los profesionales desde Odontólogos. Aquí se administran las cuentas de acceso de todos los roles de tu clínica.
 </p>
 
-<script src="<%= Html.escape(base) %>/js/usuarios-ui.js?v=20261120-issue29-ux1" defer></script>
+<script src="<%= Html.escape(base) %>/js/usuarios-ui.js?v=20261127-issue33-3" defer></script>
+<script src="<%= Html.escape(base) %>/js/correo-institucional-ui.js?v=20261127-1" defer></script>
 <%@ include file="layout-bottom.jspf" %>

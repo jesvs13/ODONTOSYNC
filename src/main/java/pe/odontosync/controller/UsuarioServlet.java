@@ -16,6 +16,7 @@ import pe.odontosync.dao.JdbcUsuarioDAO;
 import pe.odontosync.model.UsuarioDetalle;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
+import pe.odontosync.security.SecurityHeaders;
 import pe.odontosync.service.UsuarioCrudService;
 
 /** CRUD administrativo de cuentas de OdontoSync. */
@@ -49,6 +50,9 @@ public final class UsuarioServlet extends HttpServlet {
                 session.removeAttribute("crudSuccess");
                 session.removeAttribute("crudError");
             }
+            // Permitir solo la consulta de disponibilidad al mismo origen en esta vista.
+            res.setHeader("Content-Security-Policy", SecurityHeaders.values().get("Content-Security-Policy")
+                + "; connect-src 'self'");
             req.getRequestDispatcher("/WEB-INF/views/usuarios.jsp").forward(req, res);
         } catch (IllegalArgumentException ex) {
             flash(req, "crudError", ex.getMessage());
@@ -72,23 +76,27 @@ public final class UsuarioServlet extends HttpServlet {
         }
 
         String action = value(req, "accion");
+        if ("sugerir-correo".equals(action)) {
+            suggestEmail(req, res);
+            return;
+        }
         char[] password = value(req, "clave").toCharArray();
         try {
             switch (action) {
                 case "crear" -> {
-                    long id = service.create(
-                        current.clinicId(), value(req, "nombres"), value(req, "apellidos"),
-                        value(req, "correo"), value(req, "telefono"), value(req, "rol"),
+                    UsuarioCrudService.CreatedUser created = service.create(
+                        current.clinicId(), value(req, "nombres"), value(req, "primer_apellido"),
+                        value(req, "segundo_apellido"), value(req, "telefono"), value(req, "rol"),
                         value(req, "estado"), password, value(req, "colegiatura")
                     );
-                    AuditLog.businessChange(current, "CREATE", "USUARIO", id);
-                    flash(req, "crudSuccess", "Usuario creado correctamente. Ya puede iniciar sesión si su estado es ACTIVO.");
+                    AuditLog.businessChange(current, "CREATE", "USUARIO", created.id());
+                    flash(req, "crudSuccess", "Usuario creado correctamente. Correo asignado: " + created.correo());
                 }
                 case "actualizar" -> {
                     long id = parseId(value(req, "id_usuario"));
                     service.update(
                         current.clinicId(), current.id(), id,
-                        value(req, "nombres"), value(req, "apellidos"), value(req, "correo"),
+                        value(req, "nombres"), value(req, "apellidos"),
                         value(req, "telefono"), value(req, "rol"), value(req, "estado"),
                         password, value(req, "colegiatura")
                     );
@@ -115,6 +123,21 @@ public final class UsuarioServlet extends HttpServlet {
             Arrays.fill(password, '\0');
         }
         res.sendRedirect(req.getContextPath() + "/usuarios");
+    }
+
+    private void suggestEmail(HttpServletRequest req, HttpServletResponse res) throws IOException {
+        res.setContentType("text/plain; charset=UTF-8");
+        try {
+            res.getWriter().write(service.suggestEmail(value(req, "nombres"),
+                value(req, "primer_apellido"), value(req, "segundo_apellido")));
+        } catch (IllegalArgumentException ex) {
+            res.setStatus(400);
+            res.getWriter().write(ex.getMessage());
+        } catch (SQLException ex) {
+            AppLog.error("Fallo consultando disponibilidad de correo", ex);
+            res.setStatus(503);
+            res.getWriter().write("No se pudo consultar la disponibilidad del correo.");
+        }
     }
 
     private User currentAdmin(HttpServletRequest req, HttpServletResponse res) throws IOException {
