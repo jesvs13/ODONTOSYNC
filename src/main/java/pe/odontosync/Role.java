@@ -41,14 +41,14 @@ public enum Role {
 
     /**
      * Módulos visibles en navegación.
-     * Recetas conserva su permiso interno y sus rutas protegidas, pero se integra
+     * Recetas y placas conservan sus permisos internos y rutas protegidas, pero se integran
      * visualmente dentro de Historia clínica para evitar un módulo duplicado.
      */
     public List<String> modules() {
         if (this == ODONTOLOGO) {
             return ImmutableList.copyOf(
                 MODULES.get(this).stream()
-                    .filter(module -> !"recetas".equals(module))
+                    .filter(module -> !"recetas".equals(module) && !"placas".equals(module))
                     .toList()
             );
         }

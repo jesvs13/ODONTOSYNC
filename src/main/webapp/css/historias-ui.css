@@ -542,3 +542,49 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Issue #31: historial y visor radiográfico. */
+.clinical-summary-metrics { grid-template-columns: repeat(6,minmax(0,1fr)); }
+.rx-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; max-height:60vh; overflow:auto; }
+.rx-card { min-width:0; padding:14px; border:1px solid var(--border); border-radius:12px; background:#fff; display:grid; gap:12px; }
+.rx-card-heading { display:flex; align-items:center; gap:10px; }
+.rx-card-title { display:grid; gap:4px; flex:1; min-width:0; overflow-wrap:anywhere; }
+.rx-card-title strong { color:var(--navy); }
+.rx-card-title small,.rx-filename,.rx-annulled { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+.rx-filename { margin:0; }
+.rx-file-symbol { display:grid; place-items:center; width:42px; height:42px; flex:none; background:#e7f1f6; color:var(--navy); border-radius:10px; font-size:11px; font-weight:800; }
+.rx-actions,.rx-image-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.rx-image-controls { margin-bottom:8px; }
+.rx-image-controls[hidden],.rx-viewport[hidden] { display:none; }
+.crud-dialog.rx-dialog { width:min(720px,calc(100vw - 24px)); }
+.crud-dialog.rx-view-dialog { width:min(980px,calc(100vw - 24px)); }
+.crud-dialog.rx-view-dialog.rx-expanded { width:calc(100vw - 24px); max-width:none; }
+.rx-viewport { height:min(48vh,500px); overflow:auto; background:#101923; border-radius:10px; }
+.rx-expanded .rx-viewport { height:62vh; }
+.rx-stage { position:relative; min-width:100%; min-height:100%; }
+.rx-stage img { display:block; position:absolute; left:50%; top:50%; max-width:none; max-height:none; transform:translate(-50%,-50%); }
+.rx-message { font-size:12px; color:var(--muted); margin:8px 0; }
+.rx-message:empty { display:none; }
+.rx-detail { margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:#f8fbfc; }
+.rx-detail strong { color:var(--navy); font-size:11px; }
+.rx-detail p { margin:6px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.rx-view-dialog .form-actions { margin-top:12px; }
+@media(max-width:1100px){.clinical-summary-metrics{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:680px){.rx-list{grid-template-columns:1fr}.clinical-summary-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:420px){.clinical-summary-metrics{grid-template-columns:1fr;}}
+
+/* Validación de carga radiográfica antes de enviar al servidor. */
+.rx-upload-error {
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid #efc7cc;
+  border-radius: 9px;
+  background: #fff5f6;
+  color: #912c38;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.rx-upload-error[hidden] { display: none; }
+.rx-dialog [aria-invalid="true"] { border-color: #bf3947; }
+.rx-dialog button:disabled { opacity: .55; cursor: not-allowed; }
