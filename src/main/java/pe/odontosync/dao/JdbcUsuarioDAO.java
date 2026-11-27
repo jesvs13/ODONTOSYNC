@@ -163,6 +163,7 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
         long clinicId, Role role, String nombres, String apellidos, String correo,
         String telefono, String passwordHash, String estado, String numeroColegiatura
     ) throws SQLException {
+        if (role == Role.ODONTOLOGO) throw new IllegalArgumentException("Registra al profesional desde Odontólogos.");
         Connection cn = DatabaseConnection.getConnection();
         try {
             cn.setAutoCommit(false);
@@ -188,9 +189,6 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
                     userId = keys.getLong(1);
                 }
             }
-            if (role == Role.ODONTOLOGO) {
-                createDentist(cn, clinicId, userId, nombres, apellidos, correo, telefono, estado, numeroColegiatura);
-            }
             cn.commit();
             return userId;
         } catch (SQLException | RuntimeException ex) {
@@ -209,15 +207,24 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
         Connection cn = DatabaseConnection.getConnection();
         try {
             cn.setAutoCommit(false);
+            if (role == Role.ODONTOLOGO) {
+                updateDentistAccess(cn, clinicId, userId, estado, passwordHashOrNull);
+                cn.commit();
+                return;
+            }
             long roleId = roleId(cn, role);
             String sql = passwordHashOrNull == null ? """
                 UPDATE usuarios
                 SET id_rol=?, nombres=?, apellidos=?, correo=?, telefono=?, estado=?
                 WHERE id_clinica=? AND id_usuario=?
+                  AND NOT EXISTS (SELECT 1 FROM odontologos o WHERE o.id_usuario=usuarios.id_usuario)
+                  AND id_rol<>(SELECT id_rol FROM roles WHERE nombre='ODONTOLOGO')
                 """ : """
                 UPDATE usuarios
                 SET id_rol=?, nombres=?, apellidos=?, correo=?, telefono=?, estado=?, password_hash=?
                 WHERE id_clinica=? AND id_usuario=?
+                  AND NOT EXISTS (SELECT 1 FROM odontologos o WHERE o.id_usuario=usuarios.id_usuario)
+                  AND id_rol<>(SELECT id_rol FROM roles WHERE nombre='ODONTOLOGO')
                 """;
             try (PreparedStatement ps = cn.prepareStatement(sql)) {
                 int i = 1;
@@ -233,16 +240,6 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
                 if (ps.executeUpdate() != 1) throw new SQLException("No se encontró el usuario a actualizar.");
             }
 
-            if (role == Role.ODONTOLOGO) {
-                upsertDentist(cn, clinicId, userId, nombres, apellidos, correo, telefono, estado, numeroColegiatura);
-            } else {
-                try (PreparedStatement ps = cn.prepareStatement(
-                    "UPDATE odontologos SET estado='INACTIVO' WHERE id_clinica=? AND id_usuario=?")) {
-                    ps.setLong(1, clinicId);
-                    ps.setLong(2, userId);
-                    ps.executeUpdate();
-                }
-            }
             cn.commit();
         } catch (SQLException | RuntimeException ex) {
             rollbackQuietly(cn);
@@ -262,13 +259,11 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
                 return false;
             }
             try (PreparedStatement ps = cn.prepareStatement(
-                "UPDATE odontologos SET estado='INACTIVO' WHERE id_clinica=? AND id_usuario=?")) {
-                ps.setLong(1, clinicId);
-                ps.setLong(2, userId);
-                ps.executeUpdate();
-            }
-            try (PreparedStatement ps = cn.prepareStatement(
-                "DELETE FROM usuarios WHERE id_clinica=? AND id_usuario=?")) {
+                """
+                DELETE FROM usuarios WHERE id_clinica=? AND id_usuario=?
+                  AND NOT EXISTS (SELECT 1 FROM odontologos o WHERE o.id_usuario=usuarios.id_usuario)
+                  AND id_rol<>(SELECT id_rol FROM roles WHERE nombre='ODONTOLOGO')
+                """)) {
                 ps.setLong(1, clinicId);
                 ps.setLong(2, userId);
                 boolean deleted = ps.executeUpdate() == 1;
@@ -307,48 +302,24 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
         }
     }
 
-    private void createDentist(
-        Connection cn, long clinicId, long userId, String nombres, String apellidos,
-        String correo, String telefono, String userStatus, String colegiatura
-    ) throws SQLException {
-        String sql = """
-            INSERT INTO odontologos
-                (id_usuario, id_clinica, numero_colegiatura, nombres, apellidos, telefono, correo, fecha_ingreso, estado)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, ?)
-            """;
+    /** Gestiona solo credenciales/estado, sin alterar el perfil profesional. */
+    private void updateDentistAccess(Connection cn, long clinicId, long userId, String estado,
+                                     String passwordHashOrNull) throws SQLException {
+        String sql = "UPDATE usuarios SET estado=?"
+            + (passwordHashOrNull == null ? "" : ", password_hash=?")
+            + " WHERE id_clinica=? AND id_usuario=?"
+            + " AND id_rol=(SELECT id_rol FROM roles WHERE nombre='ODONTOLOGO')"
+            + " AND (? <> 'ACTIVO' OR EXISTS (SELECT 1 FROM odontologos o"
+            + " WHERE o.id_usuario=usuarios.id_usuario AND o.id_clinica=usuarios.id_clinica AND o.estado='ACTIVO'))";
         try (PreparedStatement ps = cn.prepareStatement(sql)) {
-            ps.setLong(1, userId);
-            ps.setLong(2, clinicId);
-            ps.setString(3, colegiatura);
-            ps.setString(4, nombres);
-            ps.setString(5, apellidos);
-            ps.setString(6, telefono);
-            ps.setString(7, correo);
-            ps.setString(8, dentistStatus(userStatus));
-            ps.executeUpdate();
-        }
-    }
-
-    private void upsertDentist(
-        Connection cn, long clinicId, long userId, String nombres, String apellidos,
-        String correo, String telefono, String userStatus, String colegiatura
-    ) throws SQLException {
-        String update = """
-            UPDATE odontologos
-            SET numero_colegiatura=?, nombres=?, apellidos=?, telefono=?, correo=?, estado=?
-            WHERE id_clinica=? AND id_usuario=?
-            """;
-        try (PreparedStatement ps = cn.prepareStatement(update)) {
-            ps.setString(1, colegiatura);
-            ps.setString(2, nombres);
-            ps.setString(3, apellidos);
-            ps.setString(4, telefono);
-            ps.setString(5, correo);
-            ps.setString(6, dentistStatus(userStatus));
-            ps.setLong(7, clinicId);
-            ps.setLong(8, userId);
-            if (ps.executeUpdate() == 0) {
-                createDentist(cn, clinicId, userId, nombres, apellidos, correo, telefono, userStatus, colegiatura);
+            int i = 1;
+            ps.setString(i++, estado);
+            if (passwordHashOrNull != null) ps.setString(i++, passwordHashOrNull);
+            ps.setLong(i++, clinicId);
+            ps.setLong(i++, userId);
+            ps.setString(i, estado);
+            if (ps.executeUpdate() != 1) {
+                throw new IllegalArgumentException("No se pudo actualizar la cuenta. Para habilitarla, el perfil profesional debe estar activo.");
             }
         }
     }
@@ -364,10 +335,6 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
             ps.setLong(2, userId);
             try (ResultSet rs = ps.executeQuery()) { rs.next(); return rs.getBoolean(1); }
         }
-    }
-
-    private String dentistStatus(String userStatus) {
-        return "ACTIVO".equals(userStatus) ? "ACTIVO" : "INACTIVO";
     }
 
     private void rollbackQuietly(Connection cn) {

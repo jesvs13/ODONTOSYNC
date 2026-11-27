@@ -3,6 +3,7 @@ package pe.odontosync.service;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 import pe.odontosync.Role;
 import pe.odontosync.dao.UsuarioCrudDAO;
 import pe.odontosync.model.UsuarioDetalle;
@@ -42,10 +43,13 @@ public final class UsuarioCrudService {
         String roleValue, String estado, char[] password, String numeroColegiatura
     ) throws SQLException {
         Role role = parseRole(roleValue);
+        if (role == Role.ODONTOLOGO) {
+            throw new IllegalArgumentException("Registra al profesional desde el módulo Odontólogos.");
+        }
         String apellidos = joinSurnames(primerApellido, segundoApellido);
         validateCommon(nombres, apellidos, telefono, estado);
         PasswordPolicy.validate(password, true);
-        String colegiatura = validateColegiatura(role, numeroColegiatura);
+        String colegiatura = null;
         String hash = Passwords.hash(password);
 
         for (int attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
@@ -78,7 +82,18 @@ public final class UsuarioCrudService {
 
         Role role = parseRole(roleValue);
         validateCommon(nombres, apellidos, telefono, estado);
-        String colegiatura = validateColegiatura(role, numeroColegiatura);
+        boolean professional = existing.role() == Role.ODONTOLOGO || existing.numeroColegiatura() != null;
+        if (professional && role != existing.role() || !professional && role == Role.ODONTOLOGO) {
+            throw new IllegalArgumentException("El rol de odontólogo se gestiona desde Odontólogos.");
+        }
+        if (professional && (!Objects.equals(clean(nombres), clean(existing.nombres()))
+            || !Objects.equals(clean(apellidos), clean(existing.apellidos()))
+            || !Objects.equals(clean(telefono), clean(existing.telefono()))
+            || (!clean(numeroColegiatura).isEmpty()
+                && !Objects.equals(clean(numeroColegiatura), clean(existing.numeroColegiatura()))))) {
+            throw new IllegalArgumentException("Edita los datos del profesional desde Odontólogos.");
+        }
+        String colegiatura = professional ? existing.numeroColegiatura() : null;
 
         if (currentUserId == userId && (role != Role.ADMINISTRADOR || !"ACTIVO".equals(estado))) {
             throw new IllegalArgumentException("No puedes quitarte el rol de administrador ni desactivar tu propia cuenta.");
@@ -108,6 +123,9 @@ public final class UsuarioCrudService {
         }
         UsuarioDetalle existing = dao.findDetailedById(clinicId, userId)
             .orElseThrow(() -> new IllegalArgumentException("El usuario ya no existe."));
+        if (existing.role() == Role.ODONTOLOGO || existing.numeroColegiatura() != null) {
+            throw new IllegalArgumentException("Inactiva al profesional desde Odontólogos; su cuenta no se elimina aquí.");
+        }
         if (existing.role() == Role.ADMINISTRADOR && "ACTIVO".equals(existing.estado())
             && dao.countActiveAdministrators(clinicId) <= 1) {
             throw new IllegalArgumentException("Debe quedar al menos un administrador activo en la clínica.");
@@ -143,15 +161,6 @@ public final class UsuarioCrudService {
         Role role = Role.fromDatabase(value);
         if (role == null) throw new IllegalArgumentException("Rol no válido.");
         return role;
-    }
-
-    private String validateColegiatura(Role role, String value) {
-        if (role != Role.ODONTOLOGO) return null;
-        String cleaned = clean(value);
-        if (cleaned.length() < 3 || cleaned.length() > 50) {
-            throw new IllegalArgumentException("Para un odontólogo debes indicar un número de colegiatura válido.");
-        }
-        return cleaned;
     }
 
     private String clean(String value) { return value == null ? "" : value.trim(); }

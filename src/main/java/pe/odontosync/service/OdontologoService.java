@@ -19,10 +19,13 @@ import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de odontólogos. */
 public final class OdontologoService {
+    private static final int MAX_CREATE_ATTEMPTS = 5;
     private final OdontologoCrudDAO dao;
+    private final CorreoInstitucionalService emails;
 
     public OdontologoService(OdontologoCrudDAO dao) {
         this.dao = dao;
+        this.emails = new CorreoInstitucionalService(dao::emailExistsGlobally);
     }
 
     public boolean canManage(Role role) {
@@ -49,25 +52,38 @@ public final class OdontologoService {
         return dao.findActiveSpecialties();
     }
 
+    public String suggestEmail(User current, String nombres, String primerApellido, String segundoApellido)
+        throws SQLException {
+        requireAdmin(current);
+        return emails.generate(nombres, primerApellido, segundoApellido);
+    }
+
     public long create(
-        User current, String nombres, String apellidos, String correo, String telefono,
+        User current, String nombres, String primerApellido, String segundoApellido, String telefono,
         char[] password, String colegiatura, String fechaIngreso, String estado,
         List<Long> especialidadIds
     ) throws SQLException {
         requireAdmin(current);
-        Validated v = validate(nombres, apellidos, correo, telefono, colegiatura, fechaIngreso, estado, especialidadIds);
+        String first = normalizePersonName(primerApellido);
+        if (first.isEmpty()) throw new IllegalArgumentException("Ingresa el primer apellido.");
+        String apellidos = (first + " " + normalizePersonName(segundoApellido)).trim();
+        Validated v = validate(nombres, apellidos, telefono, colegiatura, fechaIngreso, estado, especialidadIds);
         PasswordPolicy.validate(password, true);
-        if (dao.emailExists(current.clinicId(), v.correo(), null)) {
-            throw new IllegalArgumentException("Ya existe una cuenta con ese correo en la clínica.");
-        }
         if (dao.licenseExists(current.clinicId(), v.colegiatura(), null)) {
             throw new IllegalArgumentException("Ya existe un odontólogo con ese número de colegiatura.");
         }
         validateSpecialties(v.especialidades());
-        return dao.create(
-            current.clinicId(), v.nombres(), v.apellidos(), v.correo(), v.telefono(),
-            Passwords.hash(password), v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades()
-        );
+        String hash = Passwords.hash(password);
+        for (int attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
+            String email = emails.generate(v.nombres(), first, segundoApellido);
+            try {
+                return dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
+                    hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades());
+            } catch (SQLException ex) {
+                if (ex.getErrorCode() != 1062 || !dao.emailExistsGlobally(email)) throw ex;
+            }
+        }
+        throw new IllegalArgumentException("El correo cambió durante el registro. Intenta nuevamente.");
     }
 
     public void update(
@@ -78,22 +94,17 @@ public final class OdontologoService {
         requireAdmin(current);
         OdontologoDetalle existing = dao.findDetailedById(current.clinicId(), dentistId)
             .orElseThrow(() -> new IllegalArgumentException("El odontólogo ya no existe."));
-        Validated v = validate(nombres, apellidos, correo, telefono, colegiatura, fechaIngreso, estado, especialidadIds);
-        if (dao.emailExists(current.clinicId(), v.correo(), existing.idUsuario())) {
-            throw new IllegalArgumentException("Ya existe otra cuenta con ese correo en la clínica.");
+        if (newPassword != null && newPassword.length > 0) {
+            throw new IllegalArgumentException("Gestiona la contraseña desde el módulo Usuarios.");
         }
+        Validated v = validate(nombres, apellidos, telefono, colegiatura, fechaIngreso, estado, especialidadIds);
         if (dao.licenseExists(current.clinicId(), v.colegiatura(), dentistId)) {
             throw new IllegalArgumentException("Ya existe otro odontólogo con ese número de colegiatura.");
         }
         validateSpecialties(v.especialidades());
-        String hash = null;
-        if (newPassword != null && newPassword.length > 0) {
-            PasswordPolicy.validate(newPassword, false);
-            hash = Passwords.hash(newPassword);
-        }
         dao.update(
-            current.clinicId(), dentistId, v.nombres(), v.apellidos(), v.correo(),
-            v.telefono(), hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades()
+            current.clinicId(), dentistId, v.nombres(), v.apellidos(), existing.correo(),
+            v.telefono(), null, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades()
         );
     }
 
@@ -106,19 +117,15 @@ public final class OdontologoService {
     }
 
     private Validated validate(
-        String nombres, String apellidos, String correo, String telefono, String colegiatura,
+        String nombres, String apellidos, String telefono, String colegiatura,
         String fechaIngreso, String estado, List<Long> especialidadIds
     ) {
         String n = normalizePersonName(nombres);
         String a = normalizePersonName(apellidos);
-        String email = clean(correo).toLowerCase(Locale.ROOT);
         String phone = clean(telefono);
         String license = clean(colegiatura).toUpperCase(Locale.ROOT);
         if (n.length() < 2 || n.length() > 100) throw new IllegalArgumentException("Los nombres deben tener entre 2 y 100 caracteres.");
         if (a.length() < 2 || a.length() > 100) throw new IllegalArgumentException("Los apellidos deben tener entre 2 y 100 caracteres.");
-        if (email.length() > 150 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-            throw new IllegalArgumentException("Ingresa un correo electrónico válido.");
-        }
         if (phone.length() > 20 || (!phone.isBlank() && !phone.matches("[0-9+() -]{6,20}"))) {
             throw new IllegalArgumentException("El teléfono contiene caracteres no válidos.");
         }
@@ -135,7 +142,7 @@ public final class OdontologoService {
         if (specialties.size() > 8 || specialties.stream().anyMatch(id -> id == null || id <= 0)) {
             throw new IllegalArgumentException("La selección de especialidades no es válida.");
         }
-        return new Validated(n, a, email, phone.isBlank() ? null : phone, license, admission, st, specialties);
+        return new Validated(n, a, phone.isBlank() ? null : phone, license, admission, st, specialties);
     }
 
     private void validateSpecialties(List<Long> requested) throws SQLException {
@@ -172,7 +179,7 @@ public final class OdontologoService {
     private String clean(String value) { return StringUtils.trimToEmpty(value); }
 
     private record Validated(
-        String nombres, String apellidos, String correo, String telefono, String colegiatura,
+        String nombres, String apellidos, String telefono, String colegiatura,
         LocalDate fechaIngreso, String estado, List<Long> especialidades
     ) { }
 }

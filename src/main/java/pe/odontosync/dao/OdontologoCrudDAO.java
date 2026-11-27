@@ -13,6 +13,7 @@ public interface OdontologoCrudDAO {
     Optional<OdontologoDetalle> findDetailedById(long clinicId, long dentistId) throws SQLException;
     List<EspecialidadOpcion> findActiveSpecialties() throws SQLException;
     boolean emailExists(long clinicId, String email, Long excludeUserId) throws SQLException;
+    boolean emailExistsGlobally(String email) throws SQLException;
     boolean licenseExists(long clinicId, String license, Long excludeDentistId) throws SQLException;
 
     long create(

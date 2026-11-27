@@ -143,6 +143,11 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
     }
 
     @Override
+    public boolean emailExistsGlobally(String email) throws SQLException {
+        return new JdbcUsuarioDAO().emailExistsGlobally(email);
+    }
+
+    @Override
     public boolean licenseExists(long clinicId, String license, Long excludeDentistId) throws SQLException {
         String sql = "SELECT 1 FROM odontologos WHERE id_clinica=? AND numero_colegiatura=?"
             + (excludeDentistId == null ? "" : " AND id_odontologo<>?") + " LIMIT 1";
@@ -228,48 +233,41 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
         try {
             cn.setAutoCommit(false);
             long userId = userIdForDentist(cn, clinicId, dentistId);
-            long roleId = dentistRoleId(cn);
-
-            String userSql = passwordHashOrNull == null ? """
+            if (passwordHashOrNull != null) {
+                throw new IllegalArgumentException("Gestiona la contraseña desde Usuarios.");
+            }
+            try (PreparedStatement ps = cn.prepareStatement("""
                 UPDATE usuarios
-                SET id_rol=?,nombres=?,apellidos=?,correo=?,telefono=?,estado=?
+                SET nombres=?,apellidos=?,telefono=?,
+                    estado=CASE WHEN ?='INACTIVO' AND estado='ACTIVO' THEN 'INACTIVO' ELSE estado END
                 WHERE id_clinica=? AND id_usuario=?
-                """ : """
-                UPDATE usuarios
-                SET id_rol=?,nombres=?,apellidos=?,correo=?,telefono=?,estado=?,password_hash=?
-                WHERE id_clinica=? AND id_usuario=?
-                """;
-            try (PreparedStatement ps = cn.prepareStatement(userSql)) {
-                int i = 1;
-                ps.setLong(i++, roleId);
-                ps.setString(i++, nombres);
-                ps.setString(i++, apellidos);
-                ps.setString(i++, correo);
-                ps.setString(i++, telefono);
-                ps.setString(i++, userStatus(estado));
-                if (passwordHashOrNull != null) ps.setString(i++, passwordHashOrNull);
-                ps.setLong(i++, clinicId);
-                ps.setLong(i, userId);
+                """)) {
+                ps.setString(1, nombres);
+                ps.setString(2, apellidos);
+                ps.setString(3, telefono);
+                ps.setString(4, estado);
+                ps.setLong(5, clinicId);
+                ps.setLong(6, userId);
                 if (ps.executeUpdate() != 1) throw new SQLException("No se encontró la cuenta vinculada del odontólogo.");
             }
 
             try (PreparedStatement ps = cn.prepareStatement("""
                 UPDATE odontologos
-                SET numero_colegiatura=?,nombres=?,apellidos=?,telefono=?,correo=?,fecha_ingreso=?,estado=?
+                SET numero_colegiatura=?,nombres=?,apellidos=?,telefono=?,fecha_ingreso=?,estado=?
                 WHERE id_clinica=? AND id_odontologo=?
                 """)) {
                 ps.setString(1, colegiatura);
                 ps.setString(2, nombres);
                 ps.setString(3, apellidos);
                 ps.setString(4, telefono);
-                ps.setString(5, correo);
-                ps.setDate(6, Date.valueOf(fechaIngreso));
-                ps.setString(7, estado);
-                ps.setLong(8, clinicId);
-                ps.setLong(9, dentistId);
+                ps.setDate(5, Date.valueOf(fechaIngreso));
+                ps.setString(6, estado);
+                ps.setLong(7, clinicId);
+                ps.setLong(8, dentistId);
                 if (ps.executeUpdate() != 1) throw new SQLException("No se encontró el odontólogo a actualizar.");
             }
             replaceSpecialties(cn, dentistId, especialidadIds);
+            if ("INACTIVO".equals(estado)) deactivateSchedules(cn, dentistId);
             cn.commit();
         } catch (SQLException | RuntimeException ex) {
             rollbackQuietly(cn);
@@ -292,19 +290,14 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
                 ps.setLong(3, dentistId);
                 if (ps.executeUpdate() != 1) throw new SQLException("No se encontró el odontólogo.");
             }
-            try (PreparedStatement ps = cn.prepareStatement(
-                "UPDATE usuarios SET estado=? WHERE id_clinica=? AND id_usuario=?")) {
-                ps.setString(1, userStatus(estado));
-                ps.setLong(2, clinicId);
-                ps.setLong(3, userId);
-                ps.executeUpdate();
-            }
             if ("INACTIVO".equals(estado)) {
                 try (PreparedStatement ps = cn.prepareStatement(
-                    "UPDATE horarios SET estado='INACTIVO' WHERE id_odontologo=?")) {
-                    ps.setLong(1, dentistId);
+                    "UPDATE usuarios SET estado='INACTIVO' WHERE id_clinica=? AND id_usuario=? AND estado='ACTIVO'")) {
+                    ps.setLong(1, clinicId);
+                    ps.setLong(2, userId);
                     ps.executeUpdate();
                 }
+                deactivateSchedules(cn, dentistId);
             }
             cn.commit();
         } catch (SQLException | RuntimeException ex) {
@@ -312,6 +305,14 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
             throw ex;
         } finally {
             closeQuietly(cn);
+        }
+    }
+
+    private void deactivateSchedules(Connection cn, long dentistId) throws SQLException {
+        try (PreparedStatement ps = cn.prepareStatement(
+            "UPDATE horarios SET estado='INACTIVO' WHERE id_odontologo=?")) {
+            ps.setLong(1, dentistId);
+            ps.executeUpdate();
         }
     }
 
