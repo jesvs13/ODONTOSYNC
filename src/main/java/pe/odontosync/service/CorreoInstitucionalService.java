@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 public final class CorreoInstitucionalService {
     private static final String DOMAIN = "@odontosync.pe";
     private static final int MAX_LOCAL_LENGTH = 64;
+    private static final int MAX_CREATE_ATTEMPTS = 5;
+    private static final int MYSQL_DUPLICATE_KEY = 1062;
     private static final Pattern MARKS = Pattern.compile("\\p{M}+");
     private static final Pattern NON_LETTERS = Pattern.compile("[^a-z]");
 
@@ -55,6 +57,29 @@ public final class CorreoInstitucionalService {
             }
         }
         throw new IllegalStateException("No se pudo generar un correo institucional disponible.");
+    }
+
+    /** Operación de alta que devuelve su resultado usando el correo propuesto. */
+    @FunctionalInterface
+    interface AccountCreation<T> {
+        T create(String email) throws SQLException;
+    }
+
+    /** El índice único global arbitra las altas concurrentes; la vista previa no reserva correos. */
+    <T> T createWithAvailableEmail(String nombres, String primerApellido, String segundoApellido,
+        AccountCreation<T> creation) throws SQLException {
+        for (int attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
+            String email = generate(nombres, primerApellido, segundoApellido);
+            try {
+                return creation.create(email);
+            } catch (SQLException ex) {
+                // Conservar el error original si no corresponde a un candidato ocupado.
+                if (ex.getErrorCode() != MYSQL_DUPLICATE_KEY || !availability.exists(email)) {
+                    throw ex;
+                }
+            }
+        }
+        throw new IllegalArgumentException("El correo cambió durante el registro. Intenta nuevamente.");
     }
 
     private static String normalize(String value) {

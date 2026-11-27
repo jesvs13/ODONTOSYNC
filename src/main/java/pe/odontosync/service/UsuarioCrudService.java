@@ -14,7 +14,6 @@ import pe.odontosync.security.Passwords;
 public final class UsuarioCrudService {
     private final UsuarioCrudDAO dao;
     private final CorreoInstitucionalService emails;
-    private static final int MAX_CREATE_ATTEMPTS = 5;
 
     public record CreatedUser(long id, String correo) { }
 
@@ -49,22 +48,12 @@ public final class UsuarioCrudService {
         String apellidos = joinSurnames(primerApellido, segundoApellido);
         validateCommon(nombres, apellidos, telefono, estado);
         PasswordPolicy.validate(password, true);
-        String colegiatura = null;
         String hash = Passwords.hash(password);
-
-        for (int attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-            String email = emails.generate(nombres, primerApellido, segundoApellido);
-            try {
-                long id = dao.create(clinicId, role, clean(nombres), apellidos, email,
-                    nullable(telefono), hash, estado, colegiatura);
-                return new CreatedUser(id, email);
-            } catch (SQLException ex) {
-                // El índice global decide en caso de altas simultáneas.
-                // No reintentar errores de integridad que no correspondan a un correo ocupado.
-                if (ex.getErrorCode() != 1062 || !dao.emailExistsGlobally(email)) throw ex;
-            }
-        }
-        throw new IllegalArgumentException("El correo cambió durante el registro. Intenta nuevamente.");
+        return emails.createWithAvailableEmail(nombres, primerApellido, segundoApellido, email -> {
+            long id = dao.create(clinicId, role, clean(nombres), apellidos, email,
+                nullable(telefono), hash, estado, null);
+            return new CreatedUser(id, email);
+        });
     }
 
     private String joinSurnames(String first, String second) {
@@ -82,8 +71,8 @@ public final class UsuarioCrudService {
 
         Role role = parseRole(roleValue);
         validateCommon(nombres, apellidos, telefono, estado);
-        boolean professional = existing.role() == Role.ODONTOLOGO || existing.numeroColegiatura() != null;
-        if (professional && role != existing.role() || !professional && role == Role.ODONTOLOGO) {
+        boolean professional = isProfessional(existing);
+        if ((professional && role != existing.role()) || (!professional && role == Role.ODONTOLOGO)) {
             throw new IllegalArgumentException("El rol de odontólogo se gestiona desde Odontólogos.");
         }
         if (professional && (!Objects.equals(clean(nombres), clean(existing.nombres()))
@@ -123,7 +112,7 @@ public final class UsuarioCrudService {
         }
         UsuarioDetalle existing = dao.findDetailedById(clinicId, userId)
             .orElseThrow(() -> new IllegalArgumentException("El usuario ya no existe."));
-        if (existing.role() == Role.ODONTOLOGO || existing.numeroColegiatura() != null) {
+        if (isProfessional(existing)) {
             throw new IllegalArgumentException("Inactiva al profesional desde Odontólogos; su cuenta no se elimina aquí.");
         }
         if (existing.role() == Role.ADMINISTRADOR && "ACTIVO".equals(existing.estado())
@@ -135,6 +124,10 @@ public final class UsuarioCrudService {
                 "La cuenta tiene movimientos o pagos asociados. Cámbiala a INACTIVO en lugar de eliminarla."
             );
         }
+    }
+
+    private boolean isProfessional(UsuarioDetalle user) {
+        return user.role() == Role.ODONTOLOGO || user.numeroColegiatura() != null;
     }
 
     private void validateNames(String nombres, String apellidos) {

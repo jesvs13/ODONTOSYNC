@@ -19,7 +19,6 @@ import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de odontólogos. */
 public final class OdontologoService {
-    private static final int MAX_CREATE_ATTEMPTS = 5;
     private final OdontologoCrudDAO dao;
     private final CorreoInstitucionalService emails;
 
@@ -74,16 +73,9 @@ public final class OdontologoService {
         }
         validateSpecialties(v.especialidades());
         String hash = Passwords.hash(password);
-        for (int attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
-            String email = emails.generate(v.nombres(), first, segundoApellido);
-            try {
-                return dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
-                    hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades());
-            } catch (SQLException ex) {
-                if (ex.getErrorCode() != 1062 || !dao.emailExistsGlobally(email)) throw ex;
-            }
-        }
-        throw new IllegalArgumentException("El correo cambió durante el registro. Intenta nuevamente.");
+        return emails.createWithAvailableEmail(v.nombres(), first, segundoApellido, email ->
+            dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
+                hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades()));
     }
 
     public void update(
