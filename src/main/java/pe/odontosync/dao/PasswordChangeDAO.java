@@ -7,5 +7,7 @@ import java.util.Optional;
 public interface PasswordChangeDAO {
     Optional<String> findPasswordHash(long clinicId, long userId) throws SQLException;
 
-    void updatePasswordHash(long clinicId, long userId, String passwordHash) throws SQLException;
+    /** Cambia el hash y elimina la obligación de activación si la credencial sigue vigente. */
+    void updatePasswordHashAndClearRequirement(long clinicId, long userId,
+        String expectedHash, String passwordHash) throws SQLException;
 }

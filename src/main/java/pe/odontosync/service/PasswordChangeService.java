@@ -43,6 +43,7 @@ public final class PasswordChangeService {
             throw new IllegalArgumentException("La nueva contraseña debe ser diferente de la actual.");
         }
 
-        dao.updatePasswordHash(current.clinicId(), current.id(), Passwords.hash(newPassword));
+        dao.updatePasswordHashAndClearRequirement(current.clinicId(), current.id(),
+            storedHash, Passwords.hash(newPassword));
     }
 }

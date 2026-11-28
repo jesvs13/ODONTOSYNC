@@ -18,7 +18,8 @@ import pe.odontosync.model.UsuarioResumen;
 public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
     private static final String FIND_BY_EMAIL = """
         SELECT u.id_usuario, u.id_clinica, u.nombres, u.apellidos, u.password_hash,
-               u.estado, r.nombre AS rol, c.nombre AS clinica, c.estado AS estado_clinica
+               u.estado, r.nombre AS rol, c.nombre AS clinica, c.estado AS estado_clinica,
+               u.debe_cambiar_password
         FROM usuarios u
         JOIN roles r ON r.id_rol = u.id_rol
         JOIN clinicas c ON c.id_clinica = u.id_clinica
@@ -69,7 +70,7 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
                         rs.getString("nombres"), rs.getString("apellidos"),
                         rs.getString("password_hash"), rs.getString("estado"),
                         rs.getString("rol"), rs.getString("clinica"),
-                        rs.getString("estado_clinica")
+                        rs.getString("estado_clinica"), rs.getBoolean("debe_cambiar_password")
                     ));
                 }
             }

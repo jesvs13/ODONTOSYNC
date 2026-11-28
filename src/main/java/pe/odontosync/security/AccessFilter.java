@@ -57,7 +57,14 @@ public final class AccessFilter implements Filter {
             res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         }
 
-        String path = req.getRequestURI().substring(req.getContextPath().length());
+        // La ruta del servlet ya fue normalizada por el contenedor (sin parámetros de matriz).
+        String path = req.getServletPath();
+        if (path == null || path.isEmpty()) {
+            path = req.getRequestURI().substring(req.getContextPath().length())
+                .replaceAll(";[^/]*", "");
+        } else if (req.getPathInfo() != null) {
+            path += req.getPathInfo();
+        }
         boolean privateRoute = PRIVATE_EXACT.contains(path)
             || PRIVATE_PREFIXES.stream().anyMatch(path::startsWith);
 
@@ -73,9 +80,15 @@ public final class AccessFilter implements Filter {
 
         if (privateRoute) {
             HttpSession session = req.getSession(false);
-            if (session == null || !(session.getAttribute("user") instanceof User)) {
+            if (session == null || !(session.getAttribute("user") instanceof User user)) {
                 AuditLog.sessionRequired(path, req.getRemoteAddr());
                 res.sendRedirect(req.getContextPath() + "/login");
+                return;
+            }
+            if (user.mustChangePassword() && !"/cambiar-password".equals(path)
+                && !"/logout".equals(path)) {
+                AuditLog.accessDenied(user, path);
+                res.sendRedirect(req.getContextPath() + "/cambiar-password");
                 return;
             }
         }
