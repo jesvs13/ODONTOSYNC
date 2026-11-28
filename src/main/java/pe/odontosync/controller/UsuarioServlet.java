@@ -18,6 +18,7 @@ import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
 import pe.odontosync.security.SecurityHeaders;
 import pe.odontosync.service.UsuarioCrudService;
+import pe.odontosync.service.CreatedAccount;
 
 /** CRUD administrativo de cuentas de OdontoSync. */
 @WebServlet("/usuarios")
@@ -34,6 +35,7 @@ public final class UsuarioServlet extends HttpServlet {
             req.setAttribute("user", current);
             req.setAttribute("active", "usuarios");
             req.setAttribute("usuarios", service.list(current.clinicId()));
+            AccountCreationView.prepare(req, "usuarios");
 
             String edit = req.getParameter("editar");
             if (edit != null && !edit.isBlank()) {
@@ -84,13 +86,17 @@ public final class UsuarioServlet extends HttpServlet {
         try {
             switch (action) {
                 case "crear" -> {
-                    UsuarioCrudService.CreatedUser created = service.create(
+                    AccountCreationView.consume(req, "usuarios");
+                    if (password.length != 0) throw new IllegalArgumentException("La contraseña inicial es automática.");
+                    try (CreatedAccount created = service.create(
                         current.clinicId(), value(req, "nombres"), value(req, "primer_apellido"),
                         value(req, "segundo_apellido"), value(req, "telefono"), value(req, "rol"),
-                        value(req, "estado"), password, value(req, "colegiatura")
-                    );
-                    AuditLog.businessChange(current, "CREATE", "USUARIO", created.id());
-                    flash(req, "crudSuccess", "Usuario creado correctamente. Correo asignado: " + created.correo());
+                        value(req, "estado"), value(req, "dni")
+                    )) {
+                        AuditLog.businessChange(current, "CREATE", "USUARIO", created.id());
+                        AccountCreationView.show(req, res, current, "usuarios", created);
+                    }
+                    return;
                 }
                 case "actualizar" -> {
                     long id = parseId(value(req, "id_usuario"));

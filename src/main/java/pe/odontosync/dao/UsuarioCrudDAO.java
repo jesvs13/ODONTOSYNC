@@ -15,7 +15,7 @@ public interface UsuarioCrudDAO {
 
     long create(
         long clinicId, Role role, String nombres, String apellidos, String correo,
-        String telefono, String passwordHash, String estado, String numeroColegiatura
+        String telefono, String passwordHash, String estado, String dni
     ) throws SQLException;
 
     void update(

@@ -1,6 +1,8 @@
 package pe.odontosync.service;
 
 import java.sql.SQLException;
+import java.util.Arrays;
+import pe.odontosync.security.DniPolicy;
 import java.util.List;
 import java.util.Optional;
 import java.util.Objects;
@@ -15,7 +17,7 @@ public final class UsuarioCrudService {
     private final UsuarioCrudDAO dao;
     private final CorreoInstitucionalService emails;
 
-    public record CreatedUser(long id, String correo) { }
+    private final SecureTemporaryPasswordGenerator passwords = new SecureTemporaryPasswordGenerator();
 
     public UsuarioCrudService(UsuarioCrudDAO dao) {
         this.dao = dao;
@@ -37,9 +39,9 @@ public final class UsuarioCrudService {
         return emails.generate(nombres, primerApellido, segundoApellido);
     }
 
-    public CreatedUser create(
+    public CreatedAccount create(
         long clinicId, String nombres, String primerApellido, String segundoApellido, String telefono,
-        String roleValue, String estado, char[] password, String numeroColegiatura
+        String roleValue, String estado, String dni
     ) throws SQLException {
         Role role = parseRole(roleValue);
         if (role == Role.ODONTOLOGO) {
@@ -47,13 +49,18 @@ public final class UsuarioCrudService {
         }
         String apellidos = joinSurnames(primerApellido, segundoApellido);
         validateCommon(nombres, apellidos, telefono, estado);
-        PasswordPolicy.validate(password, true);
-        String hash = Passwords.hash(password);
-        return emails.createWithAvailableEmail(nombres, primerApellido, segundoApellido, email -> {
-            long id = dao.create(clinicId, role, clean(nombres), apellidos, email,
-                nullable(telefono), hash, estado, null);
-            return new CreatedUser(id, email);
-        });
+        String normalizedDni = DniPolicy.normalize(dni);
+        char[] password = passwords.generate();
+        try {
+            String hash = Passwords.hash(password);
+            return emails.createWithAvailableEmail(nombres, primerApellido, segundoApellido, email -> {
+                long id = dao.create(clinicId, role, clean(nombres), apellidos, email,
+                    nullable(telefono), hash, estado, normalizedDni);
+                return new CreatedAccount(id, email, password);
+            });
+        } finally {
+            Arrays.fill(password, '\0');
+        }
     }
 
     private String joinSurnames(String first, String second) {

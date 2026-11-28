@@ -25,6 +25,7 @@ import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
 import pe.odontosync.security.SecurityHeaders;
 import pe.odontosync.service.OdontologoService;
+import pe.odontosync.service.CreatedAccount;
 
 /**
  * Directorio y CRUD administrativo de odontólogos.
@@ -84,6 +85,7 @@ public final class OdontologoServlet extends HttpServlet {
 
             loadEditDentist(req, res, current);
             loadFlashMessages(req);
+            if (service.canManage(current.role())) AccountCreationView.prepare(req, MODULE_ODONTOLOGOS);
 
             if (res.isCommitted()) return;
             res.setHeader("Content-Security-Policy", SecurityHeaders.values().get("Content-Security-Policy")
@@ -125,7 +127,7 @@ public final class OdontologoServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse res) {
+    protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 
         User current = currentUser(req, res);
         if (current == null) {
@@ -218,7 +220,7 @@ public final class OdontologoServlet extends HttpServlet {
         HttpServletResponse res,
         User current,
         char[] password
-    ) throws SQLException {
+    ) throws SQLException, ServletException, IOException {
 
         String action = value(req, "accion");
 
@@ -249,43 +251,18 @@ public final class OdontologoServlet extends HttpServlet {
     }
 
     private void createDentist(
-        HttpServletRequest req,
-        HttpServletResponse res,
-        User current,
-        char[] password
-    ) throws SQLException {
-
-        long id = service.create(
-            current,
-            value(req, "nombres"),
-            value(req, "primer_apellido"),
-            value(req, "segundo_apellido"),
-            value(req, "telefono"),
-            password,
-            value(req, "colegiatura"),
-            value(req, "fecha_ingreso"),
-            value(req, PARAM_ESTADO),
-            specialtyIds(req)
-        );
-
-        AuditLog.businessChange(
-            current,
-            "CREATE",
-            ENTITY_ODONTOLOGO,
-            id
-        );
-
-        flash(
-            req,
-            ATTR_SUCCESS,
-            "Odontólogo registrado. Su cuenta ya puede iniciar sesión si está ACTIVO."
-        );
-
-        redirect(
-            req,
-            res,
-            PATH_ODONTOLOGOS + "?editar=" + id
-        );
+        HttpServletRequest req, HttpServletResponse res, User current, char[] password
+    ) throws SQLException, ServletException, IOException {
+        AccountCreationView.consume(req, MODULE_ODONTOLOGOS);
+        if (password.length != 0) throw new IllegalArgumentException("La contraseña inicial es automática.");
+        try (CreatedAccount created = service.create(
+            current, value(req, "nombres"), value(req, "primer_apellido"),
+            value(req, "segundo_apellido"), value(req, "telefono"), value(req, "dni"),
+            value(req, "colegiatura"), value(req, "fecha_ingreso"), value(req, PARAM_ESTADO), specialtyIds(req)
+        )) {
+            AuditLog.businessChange(current, "CREATE", ENTITY_ODONTOLOGO, created.id());
+            AccountCreationView.show(req, res, current, MODULE_ODONTOLOGOS, created);
+        }
     }
 
     private void updateDentist(

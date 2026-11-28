@@ -185,6 +185,12 @@ if (users != null) {
       <% } %>
     </label>
 
+    <% if (!editing) { %>
+      <input type="hidden" name="alta_nonce" value="<%= Html.escape((String) request.getAttribute("altaNonce")) %>">
+      <label>DNI
+        <input name="dni" type="text" inputmode="numeric" maxlength="8" minlength="8" pattern="[0-9]{8}" required autocomplete="off" placeholder="8 dígitos">
+      </label>
+    <% } %>
     <label>Teléfono
       <input name="telefono" maxlength="20" <%= professional ? "readonly" : "" %>
              value="<%= Html.escape(editing && edit.telefono() != null ? edit.telefono() : "") %>"
@@ -221,13 +227,14 @@ if (users != null) {
       </div>
     <% } %>
 
-    <label>Contraseña
-      <input type="password" name="clave" maxlength="72" <%= editing ? "" : "required" %>
-             autocomplete="new-password">
-      <small><%= editing
-          ? "Déjala vacía para conservar la contraseña actual."
-          : "Mínimo 8 caracteres, con mayúscula, minúscula y número." %></small>
-    </label>
+    <% if (editing) { %>
+      <label>Contraseña
+        <input type="password" name="clave" maxlength="72" autocomplete="new-password">
+        <small>Déjala vacía para conservar la contraseña actual.</small>
+      </label>
+    <% } else { %>
+      <div class="span-2 read-only"><strong>Contraseña temporal automática</strong><p>Se mostrará una sola vez al registrar la cuenta. El usuario deberá cambiarla después de verificar su correo.</p></div>
+    <% } %>
 
     <div class="users-security-note span-2">
       <strong>Seguridad de la cuenta</strong>

@@ -1,6 +1,8 @@
 package pe.odontosync.service;
 
 import java.sql.SQLException;
+import java.util.Arrays;
+import pe.odontosync.security.DniPolicy;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashSet;
@@ -14,13 +16,13 @@ import pe.odontosync.User;
 import pe.odontosync.dao.OdontologoCrudDAO;
 import pe.odontosync.model.EspecialidadOpcion;
 import pe.odontosync.model.OdontologoDetalle;
-import pe.odontosync.security.PasswordPolicy;
 import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de odontólogos. */
 public final class OdontologoService {
     private final OdontologoCrudDAO dao;
     private final CorreoInstitucionalService emails;
+    private final SecureTemporaryPasswordGenerator passwords = new SecureTemporaryPasswordGenerator();
 
     public OdontologoService(OdontologoCrudDAO dao) {
         this.dao = dao;
@@ -57,9 +59,9 @@ public final class OdontologoService {
         return emails.generate(nombres, primerApellido, segundoApellido);
     }
 
-    public long create(
+    public CreatedAccount create(
         User current, String nombres, String primerApellido, String segundoApellido, String telefono,
-        char[] password, String colegiatura, String fechaIngreso, String estado,
+        String dni, String colegiatura, String fechaIngreso, String estado,
         List<Long> especialidadIds
     ) throws SQLException {
         requireAdmin(current);
@@ -67,15 +69,22 @@ public final class OdontologoService {
         if (first.isEmpty()) throw new IllegalArgumentException("Ingresa el primer apellido.");
         String apellidos = (first + " " + normalizePersonName(segundoApellido)).trim();
         Validated v = validate(nombres, apellidos, telefono, colegiatura, fechaIngreso, estado, especialidadIds);
-        PasswordPolicy.validate(password, true);
+        String normalizedDni = DniPolicy.normalize(dni);
         if (dao.licenseExists(current.clinicId(), v.colegiatura(), null)) {
             throw new IllegalArgumentException("Ya existe un odontólogo con ese número de colegiatura.");
         }
         validateSpecialties(v.especialidades());
-        String hash = Passwords.hash(password);
-        return emails.createWithAvailableEmail(v.nombres(), first, segundoApellido, email ->
-            dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
-                hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades()));
+        char[] password = passwords.generate();
+        try {
+            String hash = Passwords.hash(password);
+            return emails.createWithAvailableEmail(v.nombres(), first, segundoApellido, email -> {
+                long id = dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
+                    hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades(), normalizedDni);
+                return new CreatedAccount(id, email, password);
+            });
+        } finally {
+            Arrays.fill(password, '\0');
+        }
     }
 
     public void update(

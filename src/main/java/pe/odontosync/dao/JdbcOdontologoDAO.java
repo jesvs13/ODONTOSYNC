@@ -164,7 +164,7 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
     public long create(
         long clinicId, String nombres, String apellidos, String correo, String telefono,
         String passwordHash, String colegiatura, LocalDate fechaIngreso, String estado,
-        List<Long> especialidadIds
+        List<Long> especialidadIds, String dni
     ) throws SQLException {
         Connection cn = DatabaseConnection.getConnection();
         try {
@@ -173,8 +173,8 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
             long userId;
             try (PreparedStatement ps = cn.prepareStatement("""
                 INSERT INTO usuarios
-                    (id_clinica,id_rol,nombres,apellidos,correo,password_hash,telefono,estado)
-                VALUES (?,?,?,?,?,?,?,?)
+                    (id_clinica,id_rol,nombres,apellidos,correo,password_hash,telefono,estado,dni,debe_cambiar_password)
+                VALUES (?,?,?,?,?,?,?,?,?,1)
                 """, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setLong(1, clinicId);
                 ps.setLong(2, roleId);
@@ -184,6 +184,7 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
                 ps.setString(6, passwordHash);
                 ps.setString(7, telefono);
                 ps.setString(8, userStatus(estado));
+                ps.setString(9, pe.odontosync.security.DniPolicy.normalize(dni));
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (!keys.next()) throw new SQLException("MySQL no devolvió el id del usuario odontólogo.");

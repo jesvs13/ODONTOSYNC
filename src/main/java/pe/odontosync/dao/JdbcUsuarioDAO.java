@@ -162,7 +162,7 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
     @Override
     public long create(
         long clinicId, Role role, String nombres, String apellidos, String correo,
-        String telefono, String passwordHash, String estado, String numeroColegiatura
+        String telefono, String passwordHash, String estado, String dni
     ) throws SQLException {
         if (role == Role.ODONTOLOGO) throw new IllegalArgumentException("Registra al profesional desde Odontólogos.");
         Connection cn = DatabaseConnection.getConnection();
@@ -172,8 +172,8 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
             long userId;
             String sql = """
                 INSERT INTO usuarios
-                    (id_clinica, id_rol, nombres, apellidos, correo, password_hash, telefono, estado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (id_clinica, id_rol, nombres, apellidos, correo, password_hash, telefono, estado, dni, debe_cambiar_password)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """;
             try (PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setLong(1, clinicId);
@@ -184,6 +184,7 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
                 ps.setString(6, passwordHash);
                 ps.setString(7, telefono);
                 ps.setString(8, estado);
+                ps.setString(9, pe.odontosync.security.DniPolicy.normalize(dni));
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (!keys.next()) throw new SQLException("MySQL no devolvió el id del usuario creado.");
