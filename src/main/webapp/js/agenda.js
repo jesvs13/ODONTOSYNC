@@ -29,6 +29,7 @@
   }
 
   const dentist = document.getElementById('agenda-dentist');
+  const patient = document.getElementById('agenda-patient');
   const specialty = document.getElementById('agenda-specialty');
   const help = document.getElementById('agenda-specialty-help');
   if (!dentist || !specialty) return;
@@ -36,7 +37,7 @@
   // Conservamos el catálogo completo recibido del servidor y mostramos
   // únicamente las especialidades asociadas al odontólogo seleccionado.
   const catalog = Array.from(specialty.options)
-    .filter((option) => option.value)
+    .filter((option) => option.value && option.dataset.retained !== 'true')
     .map((option) => ({ value: option.value, label: option.textContent }));
 
   function syncSpecialties() {
@@ -44,8 +45,13 @@
     const selectedDentist = dentist.options[dentist.selectedIndex];
     const rawIds = selectedDentist?.dataset?.specialties || '';
     const allowed = new Set(
-      rawIds.split(',').map((id) => id.trim()).filter(Boolean)
+      rawIds.split(',').map((id) => id.trim()).filter((id) => catalog.some((item) => item.value === id))
     );
+
+    const original = specialty.dataset;
+    const canRetain = Boolean(original.originalSpecialty)
+      && dentist.value === original.originalDentist && patient?.value === original.originalPatient;
+    const retained = canRetain && !allowed.has(original.originalSpecialty);
 
     specialty.replaceChildren();
 
@@ -63,23 +69,32 @@
       specialty.appendChild(option);
     }
 
-    if (previousValue && allowed.has(previousValue)) {
+    if (retained) {
+      const option = document.createElement('option');
+      option.value = original.originalSpecialty;
+      option.textContent = `${original.originalLabel} · Asignación anterior (no disponible para nuevas citas)`;
+      specialty.appendChild(option);
+    }
+
+    if (previousValue && (allowed.has(previousValue) || (retained && previousValue === original.originalSpecialty))) {
       specialty.value = previousValue;
     } else {
       specialty.value = '';
     }
 
     const hasDentist = Boolean(dentist.value);
-    specialty.disabled = !hasDentist || allowed.size === 0;
+    specialty.disabled = !hasDentist || (allowed.size === 0 && !retained);
 
     if (!help) return;
 
     if (!hasDentist) {
       help.textContent =
-        'Primero selecciona un odontólogo. Solo se mostrarán sus especialidades asignadas.';
+        'Primero selecciona un odontólogo. Solo se mostrarán sus especialidades activas en esta clínica.';
+    } else if (retained) {
+      help.textContent = 'Puedes conservar la especialidad de esta cita. Las nuevas asignaciones deben estar activas en tu clínica.';
     } else if (allowed.size === 0) {
       help.textContent =
-        'Este odontólogo no tiene especialidades asignadas. La cita se registrará sin especificar especialidad.';
+        'Este odontólogo no tiene especialidades activas disponibles. La cita se registrará sin especificar especialidad.';
     } else {
       help.textContent =
         `Especialidades disponibles para este odontólogo: ${allowed.size}.`;
@@ -87,5 +102,6 @@
   }
 
   dentist.addEventListener('change', syncSpecialties);
+  patient?.addEventListener('change', syncSpecialties);
   syncSpecialties();
 })();

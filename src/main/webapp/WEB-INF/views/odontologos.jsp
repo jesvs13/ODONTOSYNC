@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ page import="java.time.LocalDate,java.util.List,java.util.Set,java.util.HashSet,pe.odontosync.model.OdontologoDetalle,pe.odontosync.model.EspecialidadOpcion" %>
+<%@ page import="java.time.LocalDate,java.util.List,java.util.Set,java.util.HashSet,pe.odontosync.model.OdontologoDetalle,pe.odontosync.model.EspecialidadOpcion,pe.odontosync.model.EspecialidadCatalogo" %>
 <%@ include file="layout-top.jspf" %>
-<link rel="stylesheet" href="<%= Html.escape(base) %>/css/odontologos-dialog.css?v=20261024">
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/odontologos-dialog.css?v=20261127-issue37-84">
 <%
 List<OdontologoDetalle> dentists = (List<OdontologoDetalle>) request.getAttribute("odontologos");
 List<EspecialidadOpcion> specialties = (List<EspecialidadOpcion>) request.getAttribute("especialidades");
@@ -11,6 +11,10 @@ String success = (String) request.getAttribute("success");
 String error = (String) request.getAttribute("error");
 boolean canManage = Boolean.TRUE.equals(request.getAttribute("canManageDentists"));
 boolean editing = edit != null;
+List<EspecialidadCatalogo> catalog = canManage && request.getAttribute("catalogoEspecialidades") != null
+    ? (List<EspecialidadCatalogo>) request.getAttribute("catalogoEspecialidades") : List.of();
+boolean openCatalog = canManage && !editing && "1".equals(request.getParameter("especialidades"));
+long activeCatalogCount = catalog.stream().filter(EspecialidadCatalogo::active).count();
 Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) : Set.of();
 %>
 <div class="page-heading">
@@ -19,12 +23,13 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
     <p>Directorio profesional, especialidades y estado del equipo clínico.</p>
   </div>
   <div class="dentist-heading-actions">
+    <% if (canManage) { %><button class="btn secondary" type="button" data-open-specialty-dialog>Gestionar especialidades</button><% } %>
     <% if (canManage) { if (editing) { %><a class="btn primary" href="<%= Html.escape(base) %>/odontologos">+ Nuevo odontólogo</a><% } else { %><button class="btn primary" type="button" data-open-dentist-dialog>+ Nuevo odontólogo</button><% } } %>
   </div>
 </div>
 
-<% if (success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
-<% if (error != null) { %><div class="alert danger"><%= Html.escape(error) %></div><% } %>
+<% if (!openCatalog && success != null) { %><div class="alert success"><%= Html.escape(success) %></div><% } %>
+<% if (!openCatalog && error != null) { %><div class="alert danger"><%= Html.escape(error) %></div><% } %>
 
 <section class="patient-toolbar dentist-toolbar">
   <form class="patient-search" action="<%= Html.escape(base) %>/odontologos" method="get">
@@ -104,12 +109,13 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 
     <fieldset class="specialty-field span-2">
       <legend>Especialidades</legend>
-      <p>Selecciona al menos una especialidad para el perfil profesional.</p>
+      <p>Selecciona al menos una especialidad para el perfil profesional. <% if (editing) { %>Las especialidades inactivas ya asignadas pueden conservarse o retirarse; no se podrán volver a asignar mientras sigan inactivas.<% } %></p>
+      <% if (specialties == null || specialties.isEmpty()) { %><p>No hay especialidades disponibles. Activa o registra una desde Gestionar especialidades.</p><% } %>
       <div class="specialty-grid">
         <% if (specialties != null) for (EspecialidadOpcion sp : specialties) { %>
           <label class="specialty-option">
             <input type="checkbox" name="especialidades" value="<%= sp.id() %>" <%= selectedSpecialties.contains(sp.id()) ? "checked" : "" %>>
-            <span><%= Html.escape(sp.nombre()) %></span>
+            <span><%= Html.escape(sp.nombre()) %><% if ("INACTIVA".equals(sp.estado())) { %> <small>(Inactiva · asignada)</small><% } %></span>
           </label>
         <% } %>
       </div>
@@ -119,6 +125,58 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
       <button class="btn primary" type="submit"><%= editing ? "Guardar cambios" : "Registrar odontólogo" %></button>
     </div>
   </form>
+</dialog>
+<% } %>
+
+<% if (canManage) { %>
+<dialog class="crud-card crud-dialog dentist-dialog specialty-dialog" data-specialty-dialog data-auto-open="<%= openCatalog %>" aria-labelledby="specialty-title">
+  <div class="crud-head specialty-head">
+    <div><p class="specialty-eyebrow">CATÁLOGO CLÍNICO</p><h2 id="specialty-title">Gestionar especialidades</h2><p>Administra las especialidades disponibles en tu clínica.</p></div>
+    <button class="btn secondary" type="button" data-close-specialty-dialog>Cerrar</button>
+  </div>
+  <% if (openCatalog && success != null) { %><div class="alert success" role="status"><%= Html.escape(success) %></div><% } %>
+  <% if (openCatalog && error != null) { %><div class="alert danger" role="alert"><%= Html.escape(error) %></div><% } %>
+  <div class="specialty-metrics">
+    <div><span>Total</span><strong><%= catalog.size() %></strong></div>
+    <div><span>Activas</span><strong><%= activeCatalogCount %></strong></div>
+    <div><span>Inactivas</span><strong><%= catalog.size() - activeCatalogCount %></strong></div>
+  </div>
+  <div class="specialty-toolbar">
+    <label>Buscar especialidad<input type="search" data-specialty-search maxlength="100" placeholder="Nombre, origen o estado" autocomplete="off"></label>
+    <button class="btn primary" type="button" data-new-specialty>+ Nueva especialidad</button>
+  </div>
+  <form class="crud-form specialty-editor" data-specialty-editor hidden action="<%= Html.escape(base) %>/odontologos" method="post">
+    <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+    <input type="hidden" name="accion" value="crear-especialidad">
+    <input type="hidden" name="id_especialidad" value="">
+    <label class="span-2"><span data-specialty-editor-label>Nueva especialidad</span><input name="nombre_especialidad" maxlength="100" required autocomplete="off"></label>
+    <div class="specialty-editor-actions span-2"><button type="button" class="btn secondary" data-cancel-specialty>Cancelar</button><button class="btn primary" type="submit">Guardar especialidad</button></div>
+  </form>
+  <div class="specialty-catalog-scroll">
+    <table class="specialty-catalog-table">
+      <thead><tr><th>Especialidad</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>
+        <% for (EspecialidadCatalogo sp : catalog) { %>
+        <tr data-specialty-row data-specialty-search-text="<%= Html.escape(sp.nombre() + " " + (sp.clinicId() == null ? "Catálogo global" : "Mi clínica") + " " + (sp.active() ? "Activa" : "Inactiva")) %>">
+          <td><strong><%= Html.escape(sp.nombre()) %></strong><small><%= sp.clinicId() == null ? "Catálogo global" : "Mi clínica" %></small></td>
+          <td><span class="status-pill <%= sp.active() ? "" : "status-inactive" %>"><%= sp.active() ? "Activa" : "Inactiva" %></span></td>
+          <td><div class="specialty-row-actions">
+            <% if (sp.clinicId() != null) { %><button type="button" class="btn tiny secondary" data-edit-specialty data-id="<%= sp.id() %>" data-name="<%= Html.escape(sp.nombre()) %>">Editar</button><% } %>
+            <form action="<%= Html.escape(base) %>/odontologos" method="post" data-specialty-status>
+              <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+              <input type="hidden" name="accion" value="estado-especialidad">
+              <input type="hidden" name="id_especialidad" value="<%= sp.id() %>">
+              <input type="hidden" name="estado_especialidad" value="<%= sp.active() ? "INACTIVA" : "ACTIVA" %>">
+              <button type="submit" class="btn tiny <%= sp.active() ? "danger-btn" : "success-btn" %>"><%= sp.active() ? "Inactivar" : "Activar" %></button>
+            </form>
+          </div></td>
+        </tr>
+        <% } %>
+        <tr data-specialty-empty <%= catalog.isEmpty() ? "" : "hidden" %>><td colspan="3" class="empty">No se encontraron especialidades.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="specialty-note">Las especialidades globales no se pueden renombrar. Su disponibilidad se gestiona por clínica. Inactivar no elimina asignaciones ni información histórica.</p>
 </dialog>
 <% } %>
 
@@ -158,6 +216,6 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
 </section>
 
 <p class="read-only"><%= canManage ? "La baja es lógica: citas, historias y atenciones anteriores nunca se eliminan." : "Recepción puede consultar profesionales y sus datos de contacto; la edición corresponde a Administración." %></p>
-<script src="<%= Html.escape(base) %>/js/odontologos-dialog.js" defer></script>
+<script src="<%= Html.escape(base) %>/js/odontologos-dialog.js?v=20261127-issue37-84" defer></script>
 <script src="<%= Html.escape(base) %>/js/correo-institucional-ui.js?v=20261127-1" defer></script>
 <%@ include file="layout-bottom.jspf" %>

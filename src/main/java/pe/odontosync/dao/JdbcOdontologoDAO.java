@@ -10,6 +10,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import pe.odontosync.model.EspecialidadCatalogo;
 import java.util.Optional;
 import pe.odontosync.config.DatabaseConnection;
 import pe.odontosync.model.EspecialidadOpcion;
@@ -114,16 +117,34 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
     }
 
     @Override
-    public List<EspecialidadOpcion> findActiveSpecialties() throws SQLException {
-        String sql = "SELECT id_especialidad, nombre, estado FROM especialidades WHERE estado='ACTIVA' ORDER BY nombre";
+    public List<EspecialidadOpcion> findAvailableSpecialties(long clinicId, Long dentistId) throws SQLException {
+        try (Connection cn = DatabaseConnection.getConnection()) {
+            return availableSpecialties(cn, clinicId, dentistId);
+        }
+    }
+
+    private List<EspecialidadOpcion> availableSpecialties(Connection cn, long clinicId, Long dentistId) throws SQLException {
+        Set<Long> assigned = dentistId == null ? Set.of() : assignedSpecialties(cn, clinicId, dentistId);
         List<EspecialidadOpcion> result = new ArrayList<>();
-        try (Connection cn = DatabaseConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                result.add(new EspecialidadOpcion(
-                    rs.getLong("id_especialidad"), rs.getString("nombre"), rs.getString("estado")
-                ));
+        for (EspecialidadCatalogo sp : JdbcEspecialidadDAO.listByClinic(cn, clinicId)) {
+            if (sp.active() || assigned.contains(sp.id())) {
+                result.add(new EspecialidadOpcion(sp.id(), sp.nombre(), sp.active() ? "ACTIVA" : "INACTIVA"));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private Set<Long> assignedSpecialties(Connection cn, long clinicId, long dentistId) throws SQLException {
+        Set<Long> result = new HashSet<>();
+        try (PreparedStatement ps = cn.prepareStatement("""
+            SELECT oe.id_especialidad FROM odontologo_especialidad oe
+            JOIN odontologos o ON o.id_odontologo = oe.id_odontologo
+            WHERE o.id_clinica = ? AND o.id_odontologo = ?
+            """)) {
+            ps.setLong(1, clinicId);
+            ps.setLong(2, dentistId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) result.add(rs.getLong(1));
             }
         }
         return result;
@@ -168,6 +189,7 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
     ) throws SQLException {
         Connection cn = DatabaseConnection.getConnection();
         try {
+            JdbcEspecialidadDAO.lockCatalog(cn, clinicId);
             cn.setAutoCommit(false);
             long roleId = dentistRoleId(cn);
             long userId;
@@ -213,7 +235,7 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
                     dentistId = keys.getLong(1);
                 }
             }
-            replaceSpecialties(cn, dentistId, especialidadIds);
+            replaceSpecialties(cn, clinicId, dentistId, especialidadIds);
             cn.commit();
             return dentistId;
         } catch (SQLException | RuntimeException ex) {
@@ -232,6 +254,7 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
     ) throws SQLException {
         Connection cn = DatabaseConnection.getConnection();
         try {
+            JdbcEspecialidadDAO.lockCatalog(cn, clinicId);
             cn.setAutoCommit(false);
             long userId = userIdForDentist(cn, clinicId, dentistId);
             if (passwordHashOrNull != null) {
@@ -267,7 +290,7 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
                 ps.setLong(8, dentistId);
                 if (ps.executeUpdate() != 1) throw new SQLException("No se encontró el odontólogo a actualizar.");
             }
-            replaceSpecialties(cn, dentistId, especialidadIds);
+            replaceSpecialties(cn, clinicId, dentistId, especialidadIds);
             if ("INACTIVO".equals(estado)) deactivateSchedules(cn, dentistId);
             cn.commit();
         } catch (SQLException | RuntimeException ex) {
@@ -363,22 +386,33 @@ public final class JdbcOdontologoDAO implements OdontologoDAO, OdontologoCrudDAO
         }
     }
 
-    private void replaceSpecialties(Connection cn, long dentistId, List<Long> ids) throws SQLException {
-        try (PreparedStatement ps = cn.prepareStatement(
-            "DELETE FROM odontologo_especialidad WHERE id_odontologo=?")) {
-            ps.setLong(1, dentistId);
-            ps.executeUpdate();
+    private void replaceSpecialties(Connection cn, long clinicId, long dentistId, List<Long> ids) throws SQLException {
+        // El bloqueo del catálogo se obtuvo antes de iniciar la transacción.
+        // Revalidar aquí, no solo en el servicio, evita altas con disponibilidad obsoleta.
+        Set<Long> allowed = new HashSet<>();
+        for (EspecialidadOpcion sp : availableSpecialties(cn, clinicId, dentistId)) allowed.add(sp.id());
+        if (ids == null || ids.isEmpty() || !allowed.containsAll(ids)) {
+            throw new IllegalArgumentException("Una de las especialidades seleccionadas ya no está disponible.");
         }
-        if (ids == null || ids.isEmpty()) return;
-        try (PreparedStatement ps = cn.prepareStatement("""
-            INSERT INTO odontologo_especialidad (id_odontologo,id_especialidad)
-            SELECT ?, id_especialidad FROM especialidades
-            WHERE id_especialidad=? AND estado='ACTIVA'
-            """)) {
-            for (Long id : ids) {
+        Set<Long> requested = new HashSet<>(ids);
+        Set<Long> existing = assignedSpecialties(cn, clinicId, dentistId);
+        // No borrar y volver a insertar las relaciones que se conservan, incluidas las inactivas.
+        try (PreparedStatement ps = cn.prepareStatement(
+            "DELETE FROM odontologo_especialidad WHERE id_odontologo=? AND id_especialidad=?")) {
+            for (Long id : existing) {
+                if (requested.contains(id)) continue;
                 ps.setLong(1, dentistId);
                 ps.setLong(2, id);
-                if (ps.executeUpdate() != 1) throw new SQLException("Especialidad no válida: " + id);
+                ps.executeUpdate();
+            }
+        }
+        try (PreparedStatement ps = cn.prepareStatement(
+            "INSERT INTO odontologo_especialidad (id_odontologo,id_especialidad) VALUES (?,?)")) {
+            for (Long id : requested) {
+                if (existing.contains(id)) continue;
+                ps.setLong(1, dentistId);
+                ps.setLong(2, id);
+                if (ps.executeUpdate() != 1) throw new SQLException("No se pudo asignar la especialidad.");
             }
         }
     }

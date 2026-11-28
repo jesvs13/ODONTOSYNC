@@ -47,8 +47,9 @@ public final class OdontologoService {
         return dao.findDetailedById(current.clinicId(), dentistId);
     }
 
-    public List<EspecialidadOpcion> specialties() throws SQLException {
-        return dao.findActiveSpecialties();
+    public List<EspecialidadOpcion> specialties(User current, Long dentistId) throws SQLException {
+        requireAdmin(current);
+        return dao.findAvailableSpecialties(current.clinicId(), dentistId);
     }
 
     public String suggestEmail(User current, String nombres, String primerApellido, String segundoApellido)
@@ -71,7 +72,7 @@ public final class OdontologoService {
         if (dao.licenseExists(current.clinicId(), v.colegiatura(), null)) {
             throw new IllegalArgumentException("Ya existe un odontólogo con ese número de colegiatura.");
         }
-        validateSpecialties(v.especialidades());
+        validateSpecialties(current.clinicId(), null, v.especialidades());
         return credentials.create(emails, v.nombres(), first, segundoApellido,
             (email, hash) -> dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
                 hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades(), normalizedDni));
@@ -92,7 +93,7 @@ public final class OdontologoService {
         if (dao.licenseExists(current.clinicId(), v.colegiatura(), dentistId)) {
             throw new IllegalArgumentException("Ya existe otro odontólogo con ese número de colegiatura.");
         }
-        validateSpecialties(v.especialidades());
+        validateSpecialties(current.clinicId(), dentistId, v.especialidades());
         dao.update(
             current.clinicId(), dentistId, v.nombres(), v.apellidos(), existing.correo(),
             v.telefono(), null, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades()
@@ -136,10 +137,10 @@ public final class OdontologoService {
         return new Validated(n, a, phone.isBlank() ? null : phone, license, admission, st, specialties);
     }
 
-    private void validateSpecialties(List<Long> requested) throws SQLException {
-        Set<Long> active = new HashSet<>();
-        for (EspecialidadOpcion option : dao.findActiveSpecialties()) active.add(option.id());
-        if (!active.containsAll(requested)) {
+    private void validateSpecialties(long clinicId, Long dentistId, List<Long> requested) throws SQLException {
+        Set<Long> available = new HashSet<>();
+        for (EspecialidadOpcion option : dao.findAvailableSpecialties(clinicId, dentistId)) available.add(option.id());
+        if (!available.containsAll(requested)) {
             throw new IllegalArgumentException("Una de las especialidades seleccionadas ya no está disponible.");
         }
     }

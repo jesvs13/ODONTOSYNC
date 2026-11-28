@@ -21,14 +21,14 @@ public interface AgendaCrudDAO extends AgendaDAO {
     Optional<CitaDetalle> findDetailedById(long clinicId, long appointmentId) throws SQLException;
     List<PacienteOpcion> findActivePatients(long clinicId) throws SQLException;
     List<OdontologoOpcion> findActiveDentists(long clinicId) throws SQLException;
-    List<EspecialidadOpcion> findActiveSpecialties() throws SQLException;
+    List<EspecialidadOpcion> findActiveSpecialties(long clinicId) throws SQLException;
     Map<Long, List<Long>> findActiveDentistSpecialtyIds(long clinicId) throws SQLException;
     List<CitaEstadoOpcion> findStates() throws SQLException;
 
     boolean patientIsActive(long clinicId, long patientId) throws SQLException;
     boolean dentistIsActive(long clinicId, long dentistId) throws SQLException;
     boolean dentistBelongsToUser(long clinicId, long dentistId, long dentistUserId) throws SQLException;
-    boolean specialtyAssignedToDentist(long dentistId, long specialtyId) throws SQLException;
+    boolean specialtyAssignedToDentist(long clinicId, long dentistId, long specialtyId) throws SQLException;
     Optional<Long> findCoveringSchedule(
         long clinicId, long dentistId, int dayOfWeek, LocalTime start, LocalTime end
     ) throws SQLException;
