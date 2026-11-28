@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Arrays;
 import org.apache.commons.lang3.StringUtils;
@@ -23,7 +25,13 @@ import pe.odontosync.service.CreatedAccount;
 /** CRUD administrativo de cuentas de OdontoSync. */
 @WebServlet("/usuarios")
 public final class UsuarioServlet extends HttpServlet {
-    private final UsuarioCrudService service = new UsuarioCrudService(new JdbcUsuarioDAO());
+    private final UsuarioCrudService service;
+
+    public UsuarioServlet() { this(new UsuarioCrudService(new JdbcUsuarioDAO())); }
+
+    UsuarioServlet(UsuarioCrudService service) {
+        this.service = java.util.Objects.requireNonNull(service);
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
@@ -82,6 +90,12 @@ public final class UsuarioServlet extends HttpServlet {
             suggestEmail(req, res);
             return;
         }
+        boolean modalReset = "restablecer-password".equals(action)
+            && "modal".equals(value(req, "respuesta"));
+        if (modalReset) {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+        }
         char[] password = value(req, "clave").toCharArray();
         try {
             switch (action) {
@@ -109,6 +123,26 @@ public final class UsuarioServlet extends HttpServlet {
                     AuditLog.businessChange(current, "UPDATE", "USUARIO", id);
                     flash(req, "crudSuccess", "Usuario actualizado correctamente.");
                 }
+                case "restablecer-password" -> {
+                    AccountCreationView.consume(req, "usuarios");
+                    if (password.length != 0) throw new IllegalArgumentException("La contraseña temporal es automática.");
+                    long id = parseId(value(req, "id_usuario"));
+                    try (CreatedAccount reset = service.resetPassword(current, id)) {
+                        AuditLog.businessChange(current, "RESET_PASSWORD", "USUARIO", id);
+                        if (modalReset) {
+                            AccountCreationView.prepare(req, "usuarios");
+                            writeModalReset(req, res, reset);
+                            return;
+                        }
+                        req.setAttribute("credentialReset", Boolean.TRUE);
+                        try {
+                            AccountCreationView.show(req, res, current, "usuarios", reset);
+                        } finally {
+                            req.removeAttribute("credentialReset");
+                        }
+                    }
+                    return;
+                }
                 case "eliminar" -> {
                     long id = parseId(value(req, "id_usuario"));
                     service.delete(current.clinicId(), current.id(), id);
@@ -118,17 +152,45 @@ public final class UsuarioServlet extends HttpServlet {
                 default -> throw new IllegalArgumentException("Acción no válida.");
             }
         } catch (IllegalArgumentException ex) {
+            if (modalReset) {
+                writeModalError(res, 400, ex.getMessage());
+                return;
+            }
             flash(req, "crudError", ex.getMessage());
         } catch (SQLException ex) {
             AppLog.error("Fallo guardando CRUD de usuarios", ex);
             String message = "23000".equals(ex.getSQLState())
                 ? "No se pudo guardar: el correo o la colegiatura ya están registrados."
                 : "No se pudo guardar en MySQL. Revisa los permisos del usuario odontosync_app.";
+            if (modalReset) {
+                writeModalError(res, 503, "No se pudo confirmar el restablecimiento. Revisa la cuenta antes de intentarlo nuevamente.");
+                return;
+            }
             flash(req, "crudError", message);
         } finally {
             Arrays.fill(password, '\0');
         }
         res.sendRedirect(req.getContextPath() + "/usuarios");
+    }
+
+    private void writeModalReset(HttpServletRequest req, HttpServletResponse res, CreatedAccount reset)
+        throws IOException {
+        res.setContentType("text/plain; charset=UTF-8");
+        res.setHeader("X-OdontoSync-Reset", "1");
+        res.getWriter().write("correo=" + encodeField(reset.correo())
+            + "&clave=" + encodeField(new String(reset.temporaryPassword()))
+            + "&nonce=" + encodeField((String) req.getAttribute("altaNonce")));
+    }
+
+    private void writeModalError(HttpServletResponse res, int status, String message) throws IOException {
+        res.setStatus(status);
+        res.setContentType("text/plain; charset=UTF-8");
+        res.setHeader("X-OdontoSync-Reset", "1");
+        res.getWriter().write("error=" + encodeField(message));
+    }
+
+    private String encodeField(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private void suggestEmail(HttpServletRequest req, HttpServletResponse res) throws IOException {

@@ -1,10 +1,13 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="pe.odontosync.service.CreatedAccount" %>
 <%@ include file="layout-top.jspf" %>
-<% CreatedAccount created = (CreatedAccount) request.getAttribute("createdAccount"); %>
-<div class="page-heading"><div><h1>Cuenta registrada</h1><p>Entrega las credenciales al titular por un canal seguro.</p></div></div>
+<%
+CreatedAccount created = (CreatedAccount) request.getAttribute("createdAccount");
+boolean reset = Boolean.TRUE.equals(request.getAttribute("credentialReset"));
+%>
+<div class="page-heading"><div><h1><%= reset ? "Contraseña restablecida" : "Cuenta registrada" %></h1><p>Entrega las credenciales al titular por un canal seguro.</p></div></div>
 <section class="crud-card">
-  <div class="alert success">La cuenta se registró correctamente.</div>
+  <div class="alert success"><%= reset ? "La contraseña se restableció correctamente. Las credenciales anteriores ya no son válidas." : "La cuenta se registró correctamente." %></div>
   <p>La contraseña temporal solo se muestra en esta confirmación. No recargues la página ni compartas estas credenciales con otras personas.</p>
   <div class="crud-form">
     <label>Correo institucional

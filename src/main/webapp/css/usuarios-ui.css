@@ -127,7 +127,7 @@
 }
 
 .users-row-actions {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .crud-dialog.users-dialog {
@@ -252,4 +252,29 @@
   .users-row-actions {
     flex-wrap: wrap;
   }
+}
+
+
+/* Modales de restablecimiento: mismos componentes y paleta del CRUD. */
+.crud-dialog.users-reset-dialog { width: min(540px, calc(100vw - 24px)); }
+.users-reset-dialog .users-dialog-head h2 { color: var(--navy); margin: 0 0 5px; }
+.users-reset-dialog .users-dialog-head p { margin: 0; color: var(--muted); }
+.users-reset-account { display: grid; gap: 4px; padding: 13px 15px; border: 1px solid var(--border); border-radius: 11px; background: #f7fbfc; overflow-wrap: anywhere; }
+.users-reset-account strong { color: var(--navy); }
+.users-reset-account span { color: var(--muted); font-size: 12px; }
+.users-reset-note { padding: 12px 14px; margin: 14px 0; border: 1px solid #efd89a; border-radius: 10px; background: #fffaf0; color: #6a4d14; font-size: 12px; line-height: 1.55; }
+.users-reset-note p { margin: 5px 0 0; }
+.users-reset-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+.users-reset-dialog [hidden] { display: none !important; }
+.users-reset-dialog button:disabled { opacity: .55; cursor: not-allowed; }
+.users-reset-error { color: #a52b2b; background: #fff2f2; border-radius: 9px; padding: 12px; font-size: 12px; }
+.users-reset-fields { display: grid; gap: 8px; margin: 14px 0; }
+.users-reset-fields label { color: var(--navy); font-weight: 700; font-size: 12px; }
+.users-copy-row { display: flex; gap: 8px; align-items: center; }
+.users-copy-row input { flex: 1; min-width: 0; width: 100%; border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; color: var(--navy); background: #f7fbfc; font: inherit; }
+.users-copy-row button { flex-shrink: 0; }
+[data-reset-copy-status] { color: var(--muted); font-size: 12px; }
+@media (max-width: 560px) {
+  .users-reset-actions .btn { flex: 1 1 auto; }
+  .users-copy-row { gap: 6px; }
 }
