@@ -215,13 +215,13 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
             FROM odontologos o
             JOIN odontologo_especialidad oe ON oe.id_odontologo=o.id_odontologo
             JOIN especialidades e ON e.id_especialidad=oe.id_especialidad
-            LEFT JOIN especialidad_clinica ec ON ec.id_especialidad=e.id_especialidad AND ec.id_clinica=o.id_clinica
+            %s
             WHERE o.id_clinica=? AND o.estado='ACTIVO'
-              AND (e.id_clinica IS NULL OR e.id_clinica=o.id_clinica)
-              AND CASE WHEN e.id_clinica IS NULL THEN COALESCE(ec.activa, e.estado='ACTIVA')
-                       ELSE e.estado='ACTIVA' END
+              AND %s
+              AND %s
             ORDER BY o.id_odontologo, e.nombre
-            """;
+            """.formatted(EspecialidadCatalogoSql.availabilityJoin("o.id_clinica"),
+                EspecialidadCatalogoSql.visibleTo("o.id_clinica"), EspecialidadCatalogoSql.ACTIVE);
         Map<Long, List<Long>> result = new LinkedHashMap<>();
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
@@ -283,13 +283,13 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
             FROM odontologo_especialidad oe
             JOIN odontologos o ON o.id_odontologo=oe.id_odontologo
             JOIN especialidades e ON e.id_especialidad=oe.id_especialidad
-            LEFT JOIN especialidad_clinica ec ON ec.id_especialidad=e.id_especialidad AND ec.id_clinica=o.id_clinica
+            %s
             WHERE o.id_clinica=? AND o.estado='ACTIVO' AND oe.id_odontologo=? AND oe.id_especialidad=?
-              AND (e.id_clinica IS NULL OR e.id_clinica=o.id_clinica)
-              AND CASE WHEN e.id_clinica IS NULL THEN COALESCE(ec.activa, e.estado='ACTIVA')
-                       ELSE e.estado='ACTIVA' END
+              AND %s
+              AND %s
             LIMIT 1
-            """;
+            """.formatted(EspecialidadCatalogoSql.availabilityJoin("o.id_clinica"),
+                EspecialidadCatalogoSql.visibleTo("o.id_clinica"), EspecialidadCatalogoSql.ACTIVE);
         try (PreparedStatement ps = cn.prepareStatement(sql)) {
             ps.setLong(1, clinicId); ps.setLong(2, dentistId); ps.setLong(3, specialtyId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
@@ -304,8 +304,8 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
             String sql = """
                 SELECT 1 FROM citas c JOIN especialidades e ON e.id_especialidad=c.id_especialidad
                 WHERE c.id_clinica=? AND c.id_cita=? AND c.id_paciente=? AND c.id_odontologo=?
-                  AND c.id_especialidad=? AND (e.id_clinica IS NULL OR e.id_clinica=c.id_clinica)
-                """;
+                  AND c.id_especialidad=? AND %s
+                """.formatted(EspecialidadCatalogoSql.visibleTo("c.id_clinica"));
             try (PreparedStatement ps = cn.prepareStatement(sql)) {
                 ps.setLong(1, clinicId); ps.setLong(2, appointmentId); ps.setLong(3, patientId);
                 ps.setLong(4, dentistId); ps.setLong(5, specialtyId);

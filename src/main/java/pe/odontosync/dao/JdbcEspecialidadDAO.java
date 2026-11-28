@@ -14,15 +14,14 @@ import pe.odontosync.model.EspecialidadCatalogo;
 public final class JdbcEspecialidadDAO implements EspecialidadCrudDAO {
     private static final String LIST = """
         SELECT e.id_especialidad, e.id_clinica, e.nombre,
-               CASE WHEN e.id_clinica IS NULL
-                    THEN COALESCE(ec.activa, e.estado = 'ACTIVA')
-                    ELSE e.estado = 'ACTIVA' END AS activa
+               %s AS activa
         FROM especialidades e
-        LEFT JOIN especialidad_clinica ec ON ec.id_especialidad = e.id_especialidad
-            AND ec.id_clinica = ?
-        WHERE e.id_clinica IS NULL OR e.id_clinica = ?
+        %s
+        WHERE %s
         ORDER BY e.nombre, e.id_especialidad
-        """;
+        """.formatted(EspecialidadCatalogoSql.ACTIVE,
+            EspecialidadCatalogoSql.availabilityJoin("?"),
+            EspecialidadCatalogoSql.visibleTo("?"));
     private static final String DUPLICATE = "Ya existe una especialidad con ese nombre en tu clínica.";
 
     @Override
