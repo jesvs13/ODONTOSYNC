@@ -15,13 +15,18 @@ public interface UsuarioCrudDAO {
 
     long create(
         long clinicId, Role role, String nombres, String apellidos, String correo,
-        String telefono, String passwordHash, String estado, String numeroColegiatura
+        String telefono, String passwordHash, String estado, String dni
     ) throws SQLException;
 
     void update(
         long clinicId, long userId, Role role, String nombres, String apellidos, String correo,
         String telefono, String passwordHashOrNull, String estado, String numeroColegiatura
     ) throws SQLException;
+
+    /** Restablece el hash, exige activación y revoca credenciales anteriores de forma atómica. */
+    default boolean resetTemporaryPassword(long clinicId, long userId, String newHash) throws SQLException {
+        throw new SQLException("El restablecimiento administrativo no está disponible.");
+    }
 
     /** Elimina la cuenta si no tiene referencias que deban conservarse. */
     boolean delete(long clinicId, long userId) throws SQLException;

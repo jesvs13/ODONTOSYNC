@@ -1,7 +1,7 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ page import="java.util.List,pe.odontosync.Role,pe.odontosync.model.UsuarioDetalle" %>
 <%@ include file="layout-top.jspf" %>
-<link rel="stylesheet" href="<%= Html.escape(base) %>/css/usuarios-ui.css?v=20261127-issue33-1">
+<link rel="stylesheet" href="<%= Html.escape(base) %>/css/usuarios-ui.css?v=20261127-issue35-2">
 <%
 List<UsuarioDetalle> users = (List<UsuarioDetalle>) request.getAttribute("usuarios");
 UsuarioDetalle edit = (UsuarioDetalle) request.getAttribute("editUser");
@@ -112,6 +112,17 @@ if (users != null) {
           <td>
             <div class="row-actions users-row-actions">
               <a class="btn tiny secondary" href="<%= Html.escape(base) %>/usuarios?editar=<%= item.id() %>"><%= item.role() == Role.ODONTOLOGO || item.numeroColegiatura() != null ? "Gestionar acceso" : "Editar" %></a>
+              <% if (item.id() != user.id()) { %>
+              <form action="<%= Html.escape(base) %>/usuarios" method="post" data-user-reset-form
+                    data-user-name="<%= Html.escape(item.nombres() + " " + item.apellidos()) %>"
+                    data-user-email="<%= Html.escape(item.correo()) %>">
+                <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
+                <input type="hidden" name="accion" value="restablecer-password">
+                <input type="hidden" name="id_usuario" value="<%= item.id() %>">
+                <input type="hidden" name="alta_nonce" value="<%= Html.escape((String) request.getAttribute("altaNonce")) %>">
+                <button class="btn tiny secondary" type="submit">Restablecer contraseña</button>
+              </form>
+              <% } %>
               <% if (item.id() != user.id() && item.role() != Role.ODONTOLOGO && item.numeroColegiatura() == null) { %>
               <form action="<%= Html.escape(base) %>/usuarios" method="post" data-user-delete-form>
                 <input type="hidden" name="csrf" value="<%= Html.escape(csrf) %>">
@@ -141,7 +152,7 @@ if (users != null) {
       <span class="users-dialog-eyebrow">ACCESO Y ROLES</span>
       <h2><%= professional ? "Gestionar acceso" : editing ? "Editar usuario" : "Registrar usuario" %></h2>
       <p><%= editing
-          ? (professional ? "Gestiona el estado de acceso y la contraseña del profesional." : "Modifica los datos de la cuenta seleccionada.")
+          ? (professional ? "Gestiona el estado de acceso del profesional." : "Modifica los datos de la cuenta seleccionada.")
           : "Crea una cuenta para administración o recepción." %></p>
     </div>
     <a class="btn secondary" href="<%= Html.escape(base) %>/usuarios">Cerrar</a>
@@ -185,6 +196,12 @@ if (users != null) {
       <% } %>
     </label>
 
+    <% if (!editing) { %>
+      <input type="hidden" name="alta_nonce" value="<%= Html.escape((String) request.getAttribute("altaNonce")) %>">
+      <label>DNI
+        <input name="dni" type="text" inputmode="numeric" maxlength="8" minlength="8" pattern="[0-9]{8}" required autocomplete="off" placeholder="8 dígitos">
+      </label>
+    <% } %>
     <label>Teléfono
       <input name="telefono" maxlength="20" <%= professional ? "readonly" : "" %>
              value="<%= Html.escape(editing && edit.telefono() != null ? edit.telefono() : "") %>"
@@ -221,13 +238,17 @@ if (users != null) {
       </div>
     <% } %>
 
-    <label>Contraseña
-      <input type="password" name="clave" maxlength="72" <%= editing ? "" : "required" %>
-             autocomplete="new-password">
-      <small><%= editing
-          ? "Déjala vacía para conservar la contraseña actual."
-          : "Mínimo 8 caracteres, con mayúscula, minúscula y número." %></small>
-    </label>
+    <% if (editing) { %>
+      <div class="span-2 read-only"><strong>Contraseña de acceso</strong>
+        <% if (edit.id() == user.id()) { %>
+          <p>Para modificar tu propia contraseña, usa <a href="<%= Html.escape(base) %>/cambiar-password">Cambiar contraseña</a>.</p>
+        <% } else { %>
+          <p>Para generar una nueva contraseña temporal, utiliza Restablecer contraseña en el listado. Guardar cambios no modifica la credencial.</p>
+        <% } %>
+      </div>
+    <% } else { %>
+      <div class="span-2 read-only"><strong>Contraseña temporal automática</strong><p>Se mostrará una sola vez al registrar la cuenta. El usuario deberá cambiarla después de verificar su correo.</p></div>
+    <% } %>
 
     <div class="users-security-note span-2">
       <strong>Seguridad de la cuenta</strong>
@@ -241,10 +262,58 @@ if (users != null) {
   </form>
 </dialog>
 
+<dialog class="crud-card crud-dialog users-dialog users-reset-dialog" data-reset-confirm aria-labelledby="reset-confirm-title">
+  <div class="users-dialog-head">
+    <span class="users-dialog-eyebrow">SEGURIDAD DE CUENTAS</span>
+    <h2 id="reset-confirm-title">Restablecer contraseña</h2>
+    <p>Se generará una nueva contraseña temporal.</p>
+  </div>
+  <div class="users-reset-account">
+    <strong data-reset-name></strong>
+    <span data-reset-email></span>
+  </div>
+  <div class="users-reset-note">
+    <strong>Esta acción revoca las credenciales anteriores.</strong>
+    <p>Se invalidarán las sesiones y los códigos OTP pendientes. El usuario deberá cambiar su contraseña en el próximo ingreso. Su estado de acceso no se modificará.</p>
+  </div>
+  <p class="users-reset-error" data-reset-error role="alert" hidden></p>
+  <div class="users-reset-actions">
+    <button class="btn secondary" type="button" data-reset-cancel>Cancelar</button>
+    <a class="btn secondary" href="<%= Html.escape(base) %>/usuarios" data-reset-reload hidden>Actualizar listado</a>
+    <button class="btn primary" type="button" data-reset-submit>Confirmar restablecimiento</button>
+  </div>
+</dialog>
+
+<dialog class="crud-card crud-dialog users-dialog users-reset-dialog" data-reset-result aria-labelledby="reset-result-title">
+  <div class="users-dialog-head">
+    <span class="users-dialog-eyebrow">SEGURIDAD DE CUENTAS</span>
+    <h2 id="reset-result-title">Contraseña restablecida</h2>
+    <p>Entrega las credenciales al titular por un canal seguro.</p>
+  </div>
+  <div class="alert success">La contraseña se restableció correctamente. Las credenciales anteriores ya no son válidas.</div>
+  <div class="users-reset-fields">
+    <label for="reset-result-email">Correo institucional</label>
+    <div class="users-copy-row">
+      <input id="reset-result-email" data-result-email readonly autocomplete="off" spellcheck="false">
+      <button class="btn secondary" type="button" data-copy-reset="email">Copiar</button>
+    </div>
+    <label for="reset-result-password">Contraseña temporal</label>
+    <div class="users-copy-row">
+      <input id="reset-result-password" data-result-password readonly autocomplete="off" spellcheck="false">
+      <button class="btn secondary" type="button" data-copy-reset="password">Copiar</button>
+    </div>
+  </div>
+  <p class="users-reset-note">La contraseña solo se muestra en esta confirmación. Al cerrar se ocultará definitivamente. El usuario deberá validar el OTP y establecer una nueva contraseña.</p>
+  <p data-reset-copy-status role="status" aria-live="polite"></p>
+  <div class="users-reset-actions">
+    <button class="btn primary" type="button" data-reset-done>Finalizar</button>
+  </div>
+</dialog>
+
 <p class="read-only users-scope-note">
   Registra a los profesionales desde Odontólogos. Aquí se administran las cuentas de acceso de todos los roles de tu clínica.
 </p>
 
-<script src="<%= Html.escape(base) %>/js/usuarios-ui.js?v=20261127-issue33-3" defer></script>
+<script src="<%= Html.escape(base) %>/js/usuarios-ui.js?v=20261127-issue35-2" defer></script>
 <script src="<%= Html.escape(base) %>/js/correo-institucional-ui.js?v=20261127-1" defer></script>
 <%@ include file="layout-bottom.jspf" %>

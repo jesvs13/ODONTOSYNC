@@ -17,8 +17,9 @@ public final class JdbcPasswordChangeDAO implements PasswordChangeDAO {
 
     private static final String UPDATE_HASH = """
         UPDATE usuarios
-        SET password_hash = ?
+        SET password_hash = ?, debe_cambiar_password = 0
         WHERE id_clinica = ? AND id_usuario = ? AND estado = 'ACTIVO'
+          AND BINARY password_hash = BINARY ?
         """;
 
     @Override
@@ -35,13 +36,15 @@ public final class JdbcPasswordChangeDAO implements PasswordChangeDAO {
     }
 
     @Override
-    public void updatePasswordHash(long clinicId, long userId, String passwordHash) throws SQLException {
+    public void updatePasswordHashAndClearRequirement(long clinicId, long userId,
+        String expectedHash, String passwordHash) throws SQLException {
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(UPDATE_HASH)) {
             ps.setQueryTimeout(8);
             ps.setString(1, passwordHash);
             ps.setLong(2, clinicId);
             ps.setLong(3, userId);
+            ps.setString(4, expectedHash);
             int updated = ps.executeUpdate();
             if (updated != 1) {
                 throw new SQLException("No se pudo actualizar la contraseña de la cuenta activa.");

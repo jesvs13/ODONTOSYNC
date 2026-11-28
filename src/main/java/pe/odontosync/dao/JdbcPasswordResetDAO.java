@@ -66,7 +66,7 @@ public final class JdbcPasswordResetDAO implements PasswordResetDAO {
 
     private static final String UPDATE_PASSWORD = """
         UPDATE usuarios
-        SET password_hash = ?
+        SET password_hash = ?, version_credencial = version_credencial + 1
         WHERE id_usuario = ? AND id_clinica = ? AND estado = 'ACTIVO'
         """;
 

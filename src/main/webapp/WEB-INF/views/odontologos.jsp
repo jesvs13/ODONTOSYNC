@@ -73,6 +73,12 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
       <% if (editing) { %><small>El correo de acceso se conserva al editar el perfil.</small>
       <% } else { %><small data-email-status role="status" aria-live="polite">Completa los nombres y apellidos.</small><% } %>
     </label>
+    <% if (!editing) { %>
+      <input type="hidden" name="alta_nonce" value="<%= Html.escape((String) request.getAttribute("altaNonce")) %>">
+      <label>DNI
+        <input name="dni" type="text" inputmode="numeric" maxlength="8" minlength="8" pattern="[0-9]{8}" required autocomplete="off" placeholder="8 dígitos">
+      </label>
+    <% } %>
     <label>Teléfono
       <input name="telefono" maxlength="20" value="<%= Html.escape(editing && edit.telefono() != null ? edit.telefono() : "") %>">
     </label>
@@ -91,10 +97,7 @@ Set<Long> selectedSpecialties = editing ? new HashSet<>(edit.especialidadIds()) 
       <small>Al inactivar se deshabilita el acceso activo y los horarios. Para habilitar el acceso tras reactivar, utiliza Usuarios.</small>
     </label>
     <% if (!editing) { %>
-      <label>Contraseña inicial
-        <input type="password" name="clave" maxlength="72" required autocomplete="new-password">
-        <small>Mínimo 8 caracteres, con mayúscula, minúscula y número.</small>
-      </label>
+      <div class="span-2 read-only"><strong>Contraseña temporal automática</strong><p>Se mostrará una sola vez al registrar la cuenta. El usuario deberá cambiarla después de verificar su correo.</p></div>
     <% } else { %>
       <p class="span-2 read-only">Para gestionar la contraseña o el bloqueo de acceso, utiliza <a href="<%= Html.escape(base) %>/usuarios?editar=<%= edit.idUsuario() %>">Usuarios</a>.</p>
     <% } %>

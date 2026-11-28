@@ -12,6 +12,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import pe.odontosync.Role;
 import pe.odontosync.User;
+import pe.odontosync.security.Passwords;
 import pe.odontosync.dao.OdontologoCrudDAO;
 import pe.odontosync.model.EspecialidadOpcion;
 import pe.odontosync.model.OdontologoDetalle;
@@ -21,25 +22,28 @@ class OdontologoServiceTest {
     void administradorCreaOdontologoConCuentaYEspecialidad() throws Exception {
         FakeDao dao = new FakeDao();
         OdontologoService service = new OdontologoService(dao);
-        long id = service.create(
+        CreatedAccount created = service.create(
             admin(), " Carlos ", " Ramirez ", "Vega", "999111222",
-            "Clave2026".toCharArray(), "cop-12345", "2026-01-10", "ACTIVO", List.of(1L, 2L)
+            "01234567", "cop-12345", "2026-01-10", "ACTIVO", List.of(1L, 2L)
         );
-        assertEquals(50L, id);
+        assertEquals(50L, created.id());
         assertEquals("Carlos", dao.createdNames);
         assertEquals("cramirez@odontosync.pe", dao.createdEmail);
         assertEquals("Ramirez Vega", dao.createdSurnames);
         assertEquals("COP-12345", dao.createdLicense);
         assertEquals(List.of(1L, 2L), dao.createdSpecialties);
         assertNotNull(dao.createdHash);
-        assertFalse(dao.createdHash.contains("Clave2026"));
+        assertEquals("01234567", dao.createdDni);
+        assertEquals("cramirez@odontosync.pe", created.correo());
+        assertTrue(Passwords.matches(created.temporaryPassword(), dao.createdHash));
+        created.close();
     }
 
     @Test
     void recepcionSoloConsultaYNoPuedeCrear() {
         OdontologoService service = new OdontologoService(new FakeDao());
         assertThrows(IllegalArgumentException.class, () -> service.create(
-            reception(), "Carlos", "Ramirez", "Vega", "999111222", "Clave2026".toCharArray(),
+            reception(), "Carlos", "Ramirez", "Vega", "999111222", "01234567",
             "COP-1", "2026-01-10", "ACTIVO", List.of(1L)
         ));
     }
@@ -49,7 +53,7 @@ class OdontologoServiceTest {
         FakeDao dao = new FakeDao();
         OdontologoService service = new OdontologoService(dao);
         assertThrows(IllegalArgumentException.class, () -> service.create(
-            admin(), "Carlos", "Ramirez", "Vega", "999111222", "Clave2026".toCharArray(),
+            admin(), "Carlos", "Ramirez", "Vega", "999111222", "01234567",
             "COP-2", "2026-01-10", "ACTIVO", List.of(99L)
         ));
     }
@@ -69,7 +73,7 @@ class OdontologoServiceTest {
         dao.occupied.add("cramirez@odontosync.pe");
         dao.occupied.add("cramirezv@odontosync.pe");
         new OdontologoService(dao).create(admin(), "Carlos", "Ramirez", "Vega", "999111222",
-            "Clave2026".toCharArray(), "COP-12345", "2026-01-10", "ACTIVO", List.of(1L));
+            "01234567", "COP-12345", "2026-01-10", "ACTIVO", List.of(1L));
         assertEquals("cramirezv2@odontosync.pe", dao.createdEmail);
         assertEquals(1L, dao.createdClinic);
     }
@@ -79,7 +83,7 @@ class OdontologoServiceTest {
         FakeDao dao = new FakeDao();
         dao.race = true;
         new OdontologoService(dao).create(admin(), "Carlos", "Ramirez", "Vega", "999111222",
-            "Clave2026".toCharArray(), "COP-12345", "2026-01-10", "ACTIVO", List.of(1L));
+            "01234567", "COP-12345", "2026-01-10", "ACTIVO", List.of(1L));
         assertEquals("cramirezv@odontosync.pe", dao.createdEmail);
         assertEquals(2, dao.createAttempts);
     }
@@ -104,6 +108,14 @@ class OdontologoServiceTest {
         assertNull(dao.updatedEmail);
     }
 
+    @Test
+    void noCreaOdontologoConDniInvalido() {
+        FakeDao dao = new FakeDao();
+        assertThrows(IllegalArgumentException.class, () -> new OdontologoService(dao).create(
+            admin(), "Carlos", "Ramirez", "Vega", "999111222", "123", "COP-2", "2026-01-10", "ACTIVO", List.of(1L)));
+        assertEquals(0, dao.createAttempts);
+    }
+
     private static User admin() { return new User(1, 1, "Admin", "Clínica", Role.ADMINISTRADOR); }
     private static User reception() { return new User(3, 1, "Recepción", "Clínica", Role.RECEPCIONISTA); }
 
@@ -115,7 +127,7 @@ class OdontologoServiceTest {
     private static final class FakeDao implements OdontologoCrudDAO {
         final List<OdontologoDetalle> dentists = new ArrayList<>();
         String createdNames, createdSurnames, createdEmail, createdLicense, createdHash, newStatus;
-        String updatedEmail, updatedHash;
+        String updatedEmail, updatedHash, createdDni;
         long createdClinic;
         int createAttempts;
         boolean race;
@@ -133,10 +145,10 @@ class OdontologoServiceTest {
         // El contrato global se incorporará al DAO en GREEN.
         public boolean emailExistsGlobally(String e) { return occupied.contains(e); }
         public boolean licenseExists(long c,String e,Long x) { return false; }
-        public long create(long c,String n,String a,String e,String t,String h,String co,LocalDate f,String st,List<Long> sp) throws SQLException {
+        public long create(long c,String n,String a,String e,String t,String h,String co,LocalDate f,String st,List<Long> sp,String dni) throws SQLException {
             createAttempts++;
             if (race) { race = false; occupied.add(e); throw new SQLException("duplicate email", "23000", 1062); }
-            createdClinic=c; createdSurnames=a; createdNames=n; createdEmail=e; createdLicense=co; createdHash=h; createdSpecialties=sp; return 50;
+            createdDni=dni; createdClinic=c; createdSurnames=a; createdNames=n; createdEmail=e; createdLicense=co; createdHash=h; createdSpecialties=sp; return 50;
         }
         public void update(long c,long id,String n,String a,String e,String t,String h,String co,LocalDate f,String st,List<Long> sp) { updatedEmail=e; updatedHash=h; }
         public void updateStatus(long c,long id,String st) { newStatus=st; }

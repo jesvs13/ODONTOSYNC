@@ -12,6 +12,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.Set;
+import java.sql.SQLException;
+import java.util.Objects;
+import pe.odontosync.dao.JdbcUsuarioDAO;
+import pe.odontosync.model.LoginOtpChallenge;
 import pe.odontosync.User;
 
 /**
@@ -20,6 +24,19 @@ import pe.odontosync.User;
  */
 @WebFilter("/*")
 public final class AccessFilter implements Filter {
+    @FunctionalInterface
+    public interface CredentialCheck {
+        boolean isCurrent(User user) throws SQLException;
+    }
+
+    private final CredentialCheck credentials;
+
+    public AccessFilter() { this(new JdbcUsuarioDAO()::isCredentialCurrent); }
+
+    public AccessFilter(CredentialCheck credentials) {
+        this.credentials = Objects.requireNonNull(credentials);
+    }
+
     private static final Set<String> PRIVATE_EXACT = ImmutableSet.of(
         "/panel", "/modulo", "/usuarios", "/pacientes", "/odontologos",
         "/horarios", "/agenda", "/atencion", "/historias", "/logout",
@@ -57,7 +74,14 @@ public final class AccessFilter implements Filter {
             res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         }
 
-        String path = req.getRequestURI().substring(req.getContextPath().length());
+        // La ruta del servlet ya fue normalizada por el contenedor (sin parámetros de matriz).
+        String path = req.getServletPath();
+        if (path == null || path.isEmpty()) {
+            path = req.getRequestURI().substring(req.getContextPath().length())
+                .replaceAll(";[^/]*", "");
+        } else if (req.getPathInfo() != null) {
+            path += req.getPathInfo();
+        }
         boolean privateRoute = PRIVATE_EXACT.contains(path)
             || PRIVATE_PREFIXES.stream().anyMatch(path::startsWith);
 
@@ -71,11 +95,38 @@ public final class AccessFilter implements Filter {
             res.setHeader("Pragma", "no-cache");
         }
 
+        HttpSession session = (privateRoute || sensitivePublicRoute) ? req.getSession(false) : null;
+        if (session != null && !"/logout".equals(path)) {
+            User principal = session.getAttribute("user") instanceof User user ? user : null;
+            if (principal == null) {
+                LoginOtpChallenge challenge = LoginSessions.pending(session);
+                if (challenge != null) principal = challenge.user();
+            }
+            if (principal != null) {
+                try {
+                    if (!credentials.isCurrent(principal)) {
+                        session.invalidate();
+                        res.sendRedirect(req.getContextPath() + "/login");
+                        return;
+                    }
+                } catch (SQLException ex) {
+                    AppLog.error("No se pudo comprobar la vigencia de la credencial", ex);
+                    res.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "No se pudo verificar la sesión.");
+                    return;
+                }
+            }
+        }
+
         if (privateRoute) {
-            HttpSession session = req.getSession(false);
-            if (session == null || !(session.getAttribute("user") instanceof User)) {
+            if (session == null || !(session.getAttribute("user") instanceof User user)) {
                 AuditLog.sessionRequired(path, req.getRemoteAddr());
                 res.sendRedirect(req.getContextPath() + "/login");
+                return;
+            }
+            if (user.mustChangePassword() && !"/cambiar-password".equals(path)
+                && !"/logout".equals(path)) {
+                AuditLog.accessDenied(user, path);
+                res.sendRedirect(req.getContextPath() + "/cambiar-password");
                 return;
             }
         }

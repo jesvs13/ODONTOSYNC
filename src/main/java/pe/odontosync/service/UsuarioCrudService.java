@@ -1,21 +1,21 @@
 package pe.odontosync.service;
 
 import java.sql.SQLException;
+import pe.odontosync.security.DniPolicy;
 import java.util.List;
 import java.util.Optional;
 import java.util.Objects;
 import pe.odontosync.Role;
+import pe.odontosync.User;
 import pe.odontosync.dao.UsuarioCrudDAO;
 import pe.odontosync.model.UsuarioDetalle;
-import pe.odontosync.security.PasswordPolicy;
-import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de usuarios. No contiene SQL ni código HTTP. */
 public final class UsuarioCrudService {
     private final UsuarioCrudDAO dao;
     private final CorreoInstitucionalService emails;
 
-    public record CreatedUser(long id, String correo) { }
+    private final TemporaryAccountCredentials credentials = new TemporaryAccountCredentials();
 
     public UsuarioCrudService(UsuarioCrudDAO dao) {
         this.dao = dao;
@@ -37,9 +37,9 @@ public final class UsuarioCrudService {
         return emails.generate(nombres, primerApellido, segundoApellido);
     }
 
-    public CreatedUser create(
+    public CreatedAccount create(
         long clinicId, String nombres, String primerApellido, String segundoApellido, String telefono,
-        String roleValue, String estado, char[] password, String numeroColegiatura
+        String roleValue, String estado, String dni
     ) throws SQLException {
         Role role = parseRole(roleValue);
         if (role == Role.ODONTOLOGO) {
@@ -47,13 +47,10 @@ public final class UsuarioCrudService {
         }
         String apellidos = joinSurnames(primerApellido, segundoApellido);
         validateCommon(nombres, apellidos, telefono, estado);
-        PasswordPolicy.validate(password, true);
-        String hash = Passwords.hash(password);
-        return emails.createWithAvailableEmail(nombres, primerApellido, segundoApellido, email -> {
-            long id = dao.create(clinicId, role, clean(nombres), apellidos, email,
-                nullable(telefono), hash, estado, null);
-            return new CreatedUser(id, email);
-        });
+        String normalizedDni = DniPolicy.normalize(dni);
+        return credentials.create(emails, nombres, primerApellido, segundoApellido,
+            (email, hash) -> dao.create(clinicId, role, clean(nombres), apellidos, email,
+                nullable(telefono), hash, estado, normalizedDni));
     }
 
     private String joinSurnames(String first, String second) {
@@ -94,16 +91,30 @@ public final class UsuarioCrudService {
             throw new IllegalArgumentException("Debe quedar al menos un administrador activo en la clínica.");
         }
 
-        String hash = null;
         if (newPassword != null && newPassword.length > 0) {
-            PasswordPolicy.validate(newPassword, false);
-            hash = Passwords.hash(newPassword);
+            throw new IllegalArgumentException("Usa el restablecimiento de contraseña para generar una clave temporal.");
         }
 
         dao.update(
             clinicId, userId, role, clean(nombres), clean(apellidos), existing.correo(),
-            nullable(telefono), hash, estado, colegiatura
+            nullable(telefono), null, estado, colegiatura
         );
+    }
+
+    public CreatedAccount resetPassword(User actor, long userId) throws SQLException {
+        if (actor == null || actor.role() != Role.ADMINISTRADOR || actor.mustChangePassword()) {
+            throw new IllegalArgumentException("Solo un administrador activado puede restablecer contraseñas.");
+        }
+        if (actor.id() == userId) {
+            throw new IllegalArgumentException("Usa el cambio de contraseña de tu propia cuenta.");
+        }
+        UsuarioDetalle target = dao.findDetailedById(actor.clinicId(), userId)
+            .orElseThrow(() -> new IllegalArgumentException("El usuario ya no existe."));
+        return credentials.reset(userId, target.correo(), hash -> {
+            if (!dao.resetTemporaryPassword(actor.clinicId(), userId, hash)) {
+                throw new IllegalArgumentException("El usuario ya no existe.");
+            }
+        });
     }
 
     public void delete(long clinicId, long currentUserId, long userId) throws SQLException {

@@ -19,16 +19,18 @@ class UsuarioCrudServiceTest {
     void creaRecepcionistaConPasswordHasheado() throws Exception {
         FakeDao dao = new FakeDao();
         UsuarioCrudService service = new UsuarioCrudService(dao);
-        char[] password = "Recep2026!".toCharArray();
 
         var created = service.create(1, "Maria", "Lopez", "Diaz", "999111222",
-            "RECEPCIONISTA", "ACTIVO", password, "");
+            "RECEPCIONISTA", "ACTIVO", "01234567");
 
         assertEquals(10L, created.id());
         assertEquals("mlopez@odontosync.pe", created.correo());
         assertEquals(Role.RECEPCIONISTA, dao.createdRole);
         assertEquals("mlopez@odontosync.pe", dao.createdEmail);
-        assertTrue(Passwords.matches("Recep2026!".toCharArray(), dao.createdHash));
+        assertTrue(Passwords.matches(created.temporaryPassword(), dao.createdHash));
+        assertEquals(12, created.temporaryPassword().length);
+        assertEquals("01234567", dao.createdDni);
+        created.close();
     }
 
     @Test
@@ -36,7 +38,7 @@ class UsuarioCrudServiceTest {
         UsuarioCrudService service = new UsuarioCrudService(new FakeDao());
         assertThrows(IllegalArgumentException.class, () -> service.create(
             1, "Carlos", "Ramos", "Vega", "999111222",
-            "ODONTOLOGO", "ACTIVO", "Dentista2026!".toCharArray(), "12345"
+            "ODONTOLOGO", "ACTIVO", "01234567"
         ));
     }
 
@@ -46,7 +48,7 @@ class UsuarioCrudServiceTest {
         dao.occupied.add("mlopez@odontosync.pe");
         UsuarioCrudService service = new UsuarioCrudService(dao);
         var created = service.create(2, "Maria", "Lopez", "Diaz", "999111222",
-            "RECEPCIONISTA", "ACTIVO", "Recep2026!".toCharArray(), "");
+            "RECEPCIONISTA", "ACTIVO", "01234567");
         assertEquals("mlopezd@odontosync.pe", created.correo());
         assertEquals("Lopez Diaz", dao.createdSurnames);
     }
@@ -56,7 +58,7 @@ class UsuarioCrudServiceTest {
         FakeDao dao = new FakeDao();
         dao.race = true;
         var created = new UsuarioCrudService(dao).create(1, "Maria", "Lopez", "Diaz", "999111222",
-            "RECEPCIONISTA", "ACTIVO", "Recep2026!".toCharArray(), "");
+            "RECEPCIONISTA", "ACTIVO", "01234567");
         assertEquals("mlopezd@odontosync.pe", created.correo());
     }
 
@@ -75,7 +77,7 @@ class UsuarioCrudServiceTest {
         dao.otherDuplicate = true;
         SQLException error = assertThrows(SQLException.class, () -> new UsuarioCrudService(dao)
             .create(1, "Maria", "Lopez", "Diaz", "999111222", "RECEPCIONISTA", "ACTIVO",
-                "Recep2026!".toCharArray(), ""));
+                "01234567"));
         assertEquals(1062, error.getErrorCode());
         assertEquals(1, dao.createAttempts);
     }
@@ -146,6 +148,25 @@ class UsuarioCrudServiceTest {
         assertNull(dao.updatedEmail);
     }
 
+    @Test
+    void noCreaCuentaConDniInvalido() {
+        FakeDao dao = new FakeDao();
+        assertThrows(IllegalArgumentException.class, () -> new UsuarioCrudService(dao).create(
+            1, "Maria", "Lopez", "Diaz", "999111222", "RECEPCIONISTA", "ACTIVO", "ABC"));
+        assertEquals(0, dao.createAttempts);
+    }
+
+    @Test
+    void administradorTambienRecibeClaveTemporal() throws Exception {
+        FakeDao dao = new FakeDao();
+        try (CreatedAccount created = new UsuarioCrudService(dao).create(
+            2, "Maria", "Lopez", "Diaz", "", "ADMINISTRADOR", "ACTIVO", "00123456")) {
+            assertEquals(Role.ADMINISTRADOR, dao.createdRole);
+            assertEquals("00123456", dao.createdDni);
+            assertTrue(Passwords.matches(created.temporaryPassword(), dao.createdHash));
+        }
+    }
+
     private static UsuarioDetalle dentistAccount() {
         return new UsuarioDetalle(20, "Carlos", "Ramirez Vega", "cramirez@odontosync.pe", "999111222",
             Role.ODONTOLOGO, "ACTIVO", "12345");
@@ -164,6 +185,7 @@ class UsuarioCrudServiceTest {
         Role createdRole;
         String createdEmail;
         String createdHash;
+        String createdDni;
 
         public List<UsuarioDetalle> findDetailedByClinic(long c) { return users; }
         public Optional<UsuarioDetalle> findDetailedById(long c, long id) {
@@ -171,11 +193,11 @@ class UsuarioCrudServiceTest {
         }
         public boolean emailExistsGlobally(String e) { return occupied.contains(e); }
         public long countActiveAdministrators(long c) { return activeAdmins; }
-        public long create(long c, Role r, String n, String a, String e, String t, String h, String s, String col) throws SQLException {
+        public long create(long c, Role r, String n, String a, String e, String t, String h, String s, String dni) throws SQLException {
             createAttempts++;
             if (otherDuplicate) throw new SQLException("duplicate unrelated key", "23000", 1062);
             if (race) { race = false; occupied.add(e); throw new SQLException("duplicate", "23000", 1062); }
-            createdSurnames=a; createdRole=r; createdEmail=e; createdHash=h; return 10;
+            createdDni=dni; createdSurnames=a; createdRole=r; createdEmail=e; createdHash=h; return 10;
         }
         public void update(long c,long id,Role r,String n,String a,String e,String t,String h,String s,String col) { updatedEmail=e; }
         public boolean delete(long c,long id) { deleted = true; return true; }

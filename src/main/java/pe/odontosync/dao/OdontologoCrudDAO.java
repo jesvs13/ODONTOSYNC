@@ -19,7 +19,7 @@ public interface OdontologoCrudDAO {
     long create(
         long clinicId, String nombres, String apellidos, String correo, String telefono,
         String passwordHash, String colegiatura, LocalDate fechaIngreso, String estado,
-        List<Long> especialidadIds
+        List<Long> especialidadIds, String dni
     ) throws SQLException;
 
     void update(
