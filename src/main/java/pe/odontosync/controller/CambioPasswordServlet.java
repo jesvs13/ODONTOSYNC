@@ -13,13 +13,22 @@ import pe.odontosync.User;
 import pe.odontosync.dao.JdbcPasswordChangeDAO;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
+import pe.odontosync.security.CsrfTokens;
+import pe.odontosync.security.LoginSessions;
 import pe.odontosync.service.PasswordChangeService;
 
 /** Permite a cualquier usuario autenticado cambiar su propia contraseña. */
 @WebServlet("/cambiar-password")
 public final class CambioPasswordServlet extends HttpServlet {
-    private final PasswordChangeService service =
-        new PasswordChangeService(new JdbcPasswordChangeDAO());
+    private final PasswordChangeService service;
+
+    public CambioPasswordServlet() {
+        this(new PasswordChangeService(new JdbcPasswordChangeDAO()));
+    }
+
+    CambioPasswordServlet(PasswordChangeService service) {
+        this.service = service;
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
@@ -38,7 +47,9 @@ public final class CambioPasswordServlet extends HttpServlet {
             session.removeAttribute("passwordError");
         }
 
-        req.getRequestDispatcher("/WEB-INF/views/cambiar-password.jsp").forward(req, res);
+        req.setAttribute("csrf", CsrfTokens.ensure(session));
+        String view = current.mustChangePassword() ? "activar-cuenta.jsp" : "cambiar-password.jsp";
+        req.getRequestDispatcher("/WEB-INF/views/" + view).forward(req, res);
     }
 
     @Override
@@ -48,7 +59,7 @@ public final class CambioPasswordServlet extends HttpServlet {
         if (current == null) return;
         req.setCharacterEncoding("UTF-8");
 
-        if (!validCsrf(req)) {
+        if (!CsrfTokens.valid(req)) {
             res.sendError(403, "Solicitud rechazada.");
             return;
         }
@@ -58,6 +69,12 @@ public final class CambioPasswordServlet extends HttpServlet {
         char[] confirmation = chars(req, "clave_confirmacion");
         try {
             service.change(current, currentPassword, newPassword, confirmation);
+            if (current.mustChangePassword()) {
+                LoginSessions.completeActivation(req, current);
+                AuditLog.passwordChanged(current, req.getRemoteAddr());
+                res.sendRedirect(req.getContextPath() + "/panel");
+                return;
+            }
             req.changeSessionId();
             AuditLog.passwordChanged(current, req.getRemoteAddr());
             flash(req, "passwordSuccess", "Contraseña actualizada correctamente.");
@@ -83,13 +100,6 @@ public final class CambioPasswordServlet extends HttpServlet {
             return null;
         }
         return user;
-    }
-
-    private boolean validCsrf(HttpServletRequest req) {
-        HttpSession session = req.getSession(false);
-        String expected = session == null ? null : (String) session.getAttribute("csrf");
-        String supplied = req.getParameter("csrf");
-        return expected != null && expected.equals(supplied);
     }
 
     private char[] chars(HttpServletRequest req, String name) {

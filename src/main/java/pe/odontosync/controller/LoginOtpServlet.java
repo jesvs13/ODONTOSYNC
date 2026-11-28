@@ -36,8 +36,8 @@ public final class LoginOtpServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
         throws ServletException, IOException {
         HttpSession session = req.getSession(false);
-        if (session != null && session.getAttribute("user") instanceof User) {
-            res.sendRedirect(req.getContextPath() + "/panel");
+        if (session != null && session.getAttribute("user") instanceof User user) {
+            res.sendRedirect(req.getContextPath() + LoginSessions.destination(user));
             return;
         }
 
@@ -178,7 +178,7 @@ public final class LoginOtpServlet extends HttpServlet {
 
         LoginSessions.complete(req, challenge.user());
         AuditLog.loginSuccess(challenge.user(), req.getRemoteAddr());
-        res.sendRedirect(req.getContextPath() + "/panel");
+        res.sendRedirect(req.getContextPath() + LoginSessions.destination(challenge.user()));
     }
 
     private void expire(

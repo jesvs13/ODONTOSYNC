@@ -56,6 +56,20 @@ public final class LoginSessions {
         return session;
     }
 
+    /** Destino permitido tras completar OTP, o al volver al login autenticado. */
+    public static String destination(User user) {
+        return user.mustChangePassword() ? "/cambiar-password" : "/panel";
+    }
+
+    /** Solo se invoca tras guardar satisfactoriamente el nuevo hash y el estado. */
+    public static HttpSession completeActivation(HttpServletRequest request, User user) {
+        if (user == null || !user.mustChangePassword()) {
+            throw new IllegalArgumentException("La cuenta debe estar pendiente de activación.");
+        }
+        return complete(request, new User(user.id(), user.clinicId(), user.name(),
+            user.clinicName(), user.role(), false));
+    }
+
     public static void invalidateCurrent(HttpServletRequest request) {
         HttpSession current = request.getSession(false);
         if (current != null) current.invalidate();

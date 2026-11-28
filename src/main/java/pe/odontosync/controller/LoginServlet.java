@@ -35,8 +35,8 @@ public final class LoginServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse res)
         throws ServletException, IOException {
         HttpSession session = req.getSession(false);
-        if (session != null && session.getAttribute("user") instanceof User) {
-            res.sendRedirect(req.getContextPath() + "/panel");
+        if (session != null && session.getAttribute("user") instanceof User user) {
+            res.sendRedirect(req.getContextPath() + LoginSessions.destination(user));
             return;
         }
         if (LoginSessions.pending(session) != null) {
