@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import pe.odontosync.Role;
+import pe.odontosync.User;
 import pe.odontosync.config.DatabaseConnection;
 import pe.odontosync.model.LoginAccount;
 import pe.odontosync.model.UsuarioDetalle;
@@ -19,7 +20,7 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
     private static final String FIND_BY_EMAIL = """
         SELECT u.id_usuario, u.id_clinica, u.nombres, u.apellidos, u.password_hash,
                u.estado, r.nombre AS rol, c.nombre AS clinica, c.estado AS estado_clinica,
-               u.debe_cambiar_password
+               u.debe_cambiar_password, u.version_credencial
         FROM usuarios u
         JOIN roles r ON r.id_rol = u.id_rol
         JOIN clinicas c ON c.id_clinica = u.id_clinica
@@ -70,12 +71,67 @@ public final class JdbcUsuarioDAO implements UsuarioDAO, UsuarioCrudDAO {
                         rs.getString("nombres"), rs.getString("apellidos"),
                         rs.getString("password_hash"), rs.getString("estado"),
                         rs.getString("rol"), rs.getString("clinica"),
-                        rs.getString("estado_clinica"), rs.getBoolean("debe_cambiar_password")
+                        rs.getString("estado_clinica"), rs.getBoolean("debe_cambiar_password"), rs.getLong("version_credencial")
                     ));
                 }
             }
         }
         return accounts;
+    }
+
+    /** Comprueba la vigencia contra MySQL, incluyendo el estado y rol actuales. */
+    public boolean isCredentialCurrent(User user) throws SQLException {
+        String sql = """
+            SELECT 1 FROM usuarios u
+            JOIN clinicas c ON c.id_clinica = u.id_clinica
+            JOIN roles r ON r.id_rol = u.id_rol
+            WHERE u.id_clinica = ? AND u.id_usuario = ? AND u.version_credencial = ?
+              AND u.estado = 'ACTIVO' AND c.estado = 'ACTIVA' AND r.nombre = ?
+            """;
+        try (Connection cn = DatabaseConnection.getConnection();
+             PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setQueryTimeout(8);
+            ps.setLong(1, user.clinicId());
+            ps.setLong(2, user.id());
+            ps.setLong(3, user.credentialVersion());
+            ps.setString(4, user.role().name());
+            try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+        }
+    }
+
+    @Override
+    public boolean resetTemporaryPassword(long clinicId, long userId, String newHash) throws SQLException {
+        try (Connection cn = DatabaseConnection.getConnection()) {
+            cn.setAutoCommit(false);
+            try {
+                String update = """
+                    UPDATE usuarios SET password_hash = ?, debe_cambiar_password = 1,
+                        version_credencial = version_credencial + 1
+                    WHERE id_clinica = ? AND id_usuario = ?
+                    """;
+                try (PreparedStatement ps = cn.prepareStatement(update)) {
+                    ps.setQueryTimeout(8);
+                    ps.setString(1, newHash);
+                    ps.setLong(2, clinicId);
+                    ps.setLong(3, userId);
+                    if (ps.executeUpdate() != 1) { cn.rollback(); return false; }
+                }
+                try (PreparedStatement ps = cn.prepareStatement("""
+                    UPDATE password_reset_tokens SET usado_en = NOW()
+                    WHERE id_clinica = ? AND id_usuario = ? AND usado_en IS NULL
+                    """)) {
+                    ps.setQueryTimeout(8);
+                    ps.setLong(1, clinicId);
+                    ps.setLong(2, userId);
+                    ps.executeUpdate();
+                }
+                cn.commit();
+                return true;
+            } catch (SQLException | RuntimeException ex) {
+                try { cn.rollback(); } catch (SQLException rollback) { ex.addSuppressed(rollback); }
+                throw ex;
+            }
+        }
     }
 
     @Override

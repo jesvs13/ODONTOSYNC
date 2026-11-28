@@ -11,8 +11,15 @@ public record LoginAccount(
     String roleName,
     String clinicName,
     String clinicStatus,
-    boolean mustChangePassword
+    boolean mustChangePassword,
+    long credentialVersion
 ) {
+    public LoginAccount(long userId, long clinicId, String firstName, String lastName,
+                        String passwordHash, String userStatus, String roleName,
+                        String clinicName, String clinicStatus, boolean mustChangePassword) {
+        this(userId, clinicId, firstName, lastName, passwordHash, userStatus, roleName,
+            clinicName, clinicStatus, mustChangePassword, 0L);
+    }
     public LoginAccount(long userId, long clinicId, String firstName, String lastName,
                         String passwordHash, String userStatus, String roleName,
                         String clinicName, String clinicStatus) {

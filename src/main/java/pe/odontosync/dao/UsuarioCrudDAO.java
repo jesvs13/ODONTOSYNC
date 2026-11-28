@@ -23,6 +23,11 @@ public interface UsuarioCrudDAO {
         String telefono, String passwordHashOrNull, String estado, String numeroColegiatura
     ) throws SQLException;
 
+    /** Restablece el hash, exige activación y revoca credenciales anteriores de forma atómica. */
+    default boolean resetTemporaryPassword(long clinicId, long userId, String newHash) throws SQLException {
+        throw new SQLException("El restablecimiento administrativo no está disponible.");
+    }
+
     /** Elimina la cuenta si no tiene referencias que deban conservarse. */
     boolean delete(long clinicId, long userId) throws SQLException;
 }

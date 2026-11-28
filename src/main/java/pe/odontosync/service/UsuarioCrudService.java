@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Objects;
 import pe.odontosync.Role;
+import pe.odontosync.User;
 import pe.odontosync.dao.UsuarioCrudDAO;
 import pe.odontosync.model.UsuarioDetalle;
-import pe.odontosync.security.PasswordPolicy;
 import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de usuarios. No contiene SQL ni código HTTP. */
@@ -101,16 +101,34 @@ public final class UsuarioCrudService {
             throw new IllegalArgumentException("Debe quedar al menos un administrador activo en la clínica.");
         }
 
-        String hash = null;
         if (newPassword != null && newPassword.length > 0) {
-            PasswordPolicy.validate(newPassword, false);
-            hash = Passwords.hash(newPassword);
+            throw new IllegalArgumentException("Usa el restablecimiento de contraseña para generar una clave temporal.");
         }
 
         dao.update(
             clinicId, userId, role, clean(nombres), clean(apellidos), existing.correo(),
-            nullable(telefono), hash, estado, colegiatura
+            nullable(telefono), null, estado, colegiatura
         );
+    }
+
+    public CreatedAccount resetPassword(User actor, long userId) throws SQLException {
+        if (actor == null || actor.role() != Role.ADMINISTRADOR || actor.mustChangePassword()) {
+            throw new IllegalArgumentException("Solo un administrador activado puede restablecer contraseñas.");
+        }
+        if (actor.id() == userId) {
+            throw new IllegalArgumentException("Usa el cambio de contraseña de tu propia cuenta.");
+        }
+        UsuarioDetalle target = dao.findDetailedById(actor.clinicId(), userId)
+            .orElseThrow(() -> new IllegalArgumentException("El usuario ya no existe."));
+        char[] temporary = passwords.generate();
+        try {
+            if (!dao.resetTemporaryPassword(actor.clinicId(), userId, Passwords.hash(temporary))) {
+                throw new IllegalArgumentException("El usuario ya no existe.");
+            }
+            return new CreatedAccount(userId, target.correo(), temporary);
+        } finally {
+            Arrays.fill(temporary, '\0');
+        }
     }
 
     public void delete(long clinicId, long currentUserId, long userId) throws SQLException {

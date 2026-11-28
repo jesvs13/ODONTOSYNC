@@ -43,7 +43,7 @@ public final class AuthService {
                     account.clinicId(),
                     account.firstName() + " " + account.lastName(),
                     account.clinicName(),
-                    role, account.mustChangePassword()
+                    role, account.mustChangePassword(), account.credentialVersion()
                 );
             }
         }

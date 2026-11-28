@@ -67,7 +67,7 @@ public final class LoginSessions {
             throw new IllegalArgumentException("La cuenta debe estar pendiente de activación.");
         }
         return complete(request, new User(user.id(), user.clinicId(), user.name(),
-            user.clinicName(), user.role(), false));
+            user.clinicName(), user.role(), false, user.credentialVersion()));
     }
 
     public static void invalidateCurrent(HttpServletRequest request) {
