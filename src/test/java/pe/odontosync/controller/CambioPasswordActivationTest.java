@@ -54,6 +54,17 @@ class CambioPasswordActivationTest {
         }
     }
 
+    @Test void activacionConservaVersionDeCredencialAlRenovarSesion() throws Exception {
+        User pending = new User(7L, 2L, "Usuario Prueba", "Clínica Prueba", Role.ODONTOLOGO, true, 9L);
+        Fixture f = new Fixture(pending);
+        f.servlet.doPost(f.request, f.response);
+        User activated = (User) f.sessionData.get("user");
+        assertNotNull(activated);
+        assertFalse(activated.mustChangePassword());
+        assertEquals(9L, activated.credentialVersion());
+        assertEquals(CONTEXT + "/panel", f.redirect);
+    }
+
     @Test void claveIncorrectaNoActivaLaCuenta() throws Exception {
         Fixture f = new Fixture(user(Role.ODONTOLOGO, true));
         f.params.put("clave_actual", "incorrecta");

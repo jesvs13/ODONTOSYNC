@@ -45,6 +45,16 @@ class AuthActivationTest {
         assertEquals(0L, dao.lastAccess);
     }
 
+    @Test
+    void primerFactorConservaVersionDeCredencialDeLaBaseDeDatos() throws Exception {
+        LoginAccount account = new LoginAccount(2L, 5L, "Usuario", "Prueba", HASH, "ACTIVO",
+            Role.ADMINISTRADOR.name(), "Clínica de prueba", "ACTIVA", true, 9L);
+        User user = new AuthService(new FakeDao(account)).verifyFirstFactor(EMAIL, "Temporal123A".toCharArray());
+        assertNotNull(user);
+        assertEquals(9L, user.credentialVersion());
+        assertTrue(user.mustChangePassword());
+    }
+
     private static LoginAccount account(Role role, String status, boolean required) {
         return new LoginAccount(2L, 5L, "Usuario", "Prueba", HASH, status,
             role.name(), "Clínica de prueba", "ACTIVA", required);

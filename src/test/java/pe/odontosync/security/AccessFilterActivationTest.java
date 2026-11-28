@@ -90,7 +90,7 @@ class AccessFilterActivationTest {
         });
         AtomicBoolean proceeded = new AtomicBoolean();
         FilterChain chain = (req, res) -> proceeded.set(true);
-        new AccessFilter().doFilter(request, response, chain);
+        new AccessFilter(ignored -> true).doFilter(request, response, chain);
         return new Result(proceeded.get(), redirect.get());
     }
 
