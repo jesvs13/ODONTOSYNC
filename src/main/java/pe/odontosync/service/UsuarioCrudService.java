@@ -1,7 +1,6 @@
 package pe.odontosync.service;
 
 import java.sql.SQLException;
-import java.util.Arrays;
 import pe.odontosync.security.DniPolicy;
 import java.util.List;
 import java.util.Optional;
@@ -10,14 +9,13 @@ import pe.odontosync.Role;
 import pe.odontosync.User;
 import pe.odontosync.dao.UsuarioCrudDAO;
 import pe.odontosync.model.UsuarioDetalle;
-import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de usuarios. No contiene SQL ni código HTTP. */
 public final class UsuarioCrudService {
     private final UsuarioCrudDAO dao;
     private final CorreoInstitucionalService emails;
 
-    private final SecureTemporaryPasswordGenerator passwords = new SecureTemporaryPasswordGenerator();
+    private final TemporaryAccountCredentials credentials = new TemporaryAccountCredentials();
 
     public UsuarioCrudService(UsuarioCrudDAO dao) {
         this.dao = dao;
@@ -50,17 +48,9 @@ public final class UsuarioCrudService {
         String apellidos = joinSurnames(primerApellido, segundoApellido);
         validateCommon(nombres, apellidos, telefono, estado);
         String normalizedDni = DniPolicy.normalize(dni);
-        char[] password = passwords.generate();
-        try {
-            String hash = Passwords.hash(password);
-            return emails.createWithAvailableEmail(nombres, primerApellido, segundoApellido, email -> {
-                long id = dao.create(clinicId, role, clean(nombres), apellidos, email,
-                    nullable(telefono), hash, estado, normalizedDni);
-                return new CreatedAccount(id, email, password);
-            });
-        } finally {
-            Arrays.fill(password, '\0');
-        }
+        return credentials.create(emails, nombres, primerApellido, segundoApellido,
+            (email, hash) -> dao.create(clinicId, role, clean(nombres), apellidos, email,
+                nullable(telefono), hash, estado, normalizedDni));
     }
 
     private String joinSurnames(String first, String second) {
@@ -120,15 +110,11 @@ public final class UsuarioCrudService {
         }
         UsuarioDetalle target = dao.findDetailedById(actor.clinicId(), userId)
             .orElseThrow(() -> new IllegalArgumentException("El usuario ya no existe."));
-        char[] temporary = passwords.generate();
-        try {
-            if (!dao.resetTemporaryPassword(actor.clinicId(), userId, Passwords.hash(temporary))) {
+        return credentials.reset(userId, target.correo(), hash -> {
+            if (!dao.resetTemporaryPassword(actor.clinicId(), userId, hash)) {
                 throw new IllegalArgumentException("El usuario ya no existe.");
             }
-            return new CreatedAccount(userId, target.correo(), temporary);
-        } finally {
-            Arrays.fill(temporary, '\0');
-        }
+        });
     }
 
     public void delete(long clinicId, long currentUserId, long userId) throws SQLException {

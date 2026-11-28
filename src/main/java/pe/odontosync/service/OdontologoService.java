@@ -1,7 +1,6 @@
 package pe.odontosync.service;
 
 import java.sql.SQLException;
-import java.util.Arrays;
 import pe.odontosync.security.DniPolicy;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -16,13 +15,12 @@ import pe.odontosync.User;
 import pe.odontosync.dao.OdontologoCrudDAO;
 import pe.odontosync.model.EspecialidadOpcion;
 import pe.odontosync.model.OdontologoDetalle;
-import pe.odontosync.security.Passwords;
 
 /** Reglas de negocio del CRUD de odontólogos. */
 public final class OdontologoService {
     private final OdontologoCrudDAO dao;
     private final CorreoInstitucionalService emails;
-    private final SecureTemporaryPasswordGenerator passwords = new SecureTemporaryPasswordGenerator();
+    private final TemporaryAccountCredentials credentials = new TemporaryAccountCredentials();
 
     public OdontologoService(OdontologoCrudDAO dao) {
         this.dao = dao;
@@ -74,17 +72,9 @@ public final class OdontologoService {
             throw new IllegalArgumentException("Ya existe un odontólogo con ese número de colegiatura.");
         }
         validateSpecialties(v.especialidades());
-        char[] password = passwords.generate();
-        try {
-            String hash = Passwords.hash(password);
-            return emails.createWithAvailableEmail(v.nombres(), first, segundoApellido, email -> {
-                long id = dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
-                    hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades(), normalizedDni);
-                return new CreatedAccount(id, email, password);
-            });
-        } finally {
-            Arrays.fill(password, '\0');
-        }
+        return credentials.create(emails, v.nombres(), first, segundoApellido,
+            (email, hash) -> dao.create(current.clinicId(), v.nombres(), v.apellidos(), email, v.telefono(),
+                hash, v.colegiatura(), v.fechaIngreso(), v.estado(), v.especialidades(), normalizedDni));
     }
 
     public void update(
