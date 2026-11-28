@@ -227,7 +227,7 @@ if (appointments != null) for (CitaDetalle x : appointments) {
     <% if (editing) { %><input type="hidden" name="id_cita" value="<%= edit.idCita() %>"><% } %>
 
     <label>Paciente
-      <select name="id_paciente" required>
+      <select id="agenda-patient" name="id_paciente" required>
         <option value="">Selecciona un paciente</option>
         <% if (patients != null) for (PacienteOpcion p : patients) {
              boolean selected = editing ? edit.idPaciente() == p.idPaciente() : preselectedPatientId != null && preselectedPatientId == p.idPaciente(); %>
@@ -260,16 +260,23 @@ if (appointments != null) for (CitaDetalle x : appointments) {
     </label>
 
     <label>Especialidad <small>(opcional)</small>
-      <select id="agenda-specialty" name="id_especialidad">
+      <select id="agenda-specialty" name="id_especialidad"
+              data-original-patient="<%= editing ? edit.idPaciente() : "" %>"
+              data-original-dentist="<%= editing ? edit.idOdontologo() : "" %>"
+              data-original-specialty="<%= editing && edit.idEspecialidad() != null ? edit.idEspecialidad() : "" %>"
+              data-original-label="<%= Html.escape(editing ? edit.especialidad() : "") %>">
         <option value="">Sin especificar</option>
         <% if (specialties != null) for (EspecialidadOpcion sp : specialties) {
              boolean selected = editing && edit.idEspecialidad() != null && edit.idEspecialidad() == sp.id(); %>
           <option value="<%= sp.id() %>" <%= selected ? "selected" : "" %>>
             <%= Html.escape(sp.nombre()) %>
           </option>
+        <% }
+           if (editing && edit.idEspecialidad() != null && (specialties == null || specialties.stream().noneMatch(sp -> edit.idEspecialidad().equals(sp.id())))) { %>
+          <option value="<%= edit.idEspecialidad() %>" data-retained="true" selected><%= Html.escape(edit.especialidad()) %> · Asignación anterior</option>
         <% } %>
       </select>
-      <small id="agenda-specialty-help">Primero selecciona un odontólogo. Solo se mostrarán sus especialidades asignadas.</small>
+      <small id="agenda-specialty-help">Primero selecciona un odontólogo. Solo se mostrarán sus especialidades activas en esta clínica.</small>
     </label>
 
     <label>Fecha
@@ -320,6 +327,6 @@ if (appointments != null) for (CitaDetalle x : appointments) {
 </p>
 
 <% if (canSchedule) { %>
-<script src="<%= Html.escape(base) %>/js/agenda.js?v=20261120-issue29-ux1" defer></script>
+<script src="<%= Html.escape(base) %>/js/agenda.js?v=20261127-issue37-86" defer></script>
 <% } %>
 <%@ include file="layout-bottom.jspf" %>

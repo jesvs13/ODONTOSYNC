@@ -20,6 +20,8 @@ import org.apache.commons.lang3.StringUtils;
 
 import pe.odontosync.User;
 import pe.odontosync.dao.JdbcOdontologoDAO;
+import pe.odontosync.dao.JdbcEspecialidadDAO;
+import pe.odontosync.service.EspecialidadService;
 import pe.odontosync.model.OdontologoDetalle;
 import pe.odontosync.security.AppLog;
 import pe.odontosync.security.AuditLog;
@@ -50,10 +52,12 @@ public final class OdontologoServlet extends HttpServlet {
      * El servicio se inicializa mediante el ciclo de vida del Servlet.
      */
     private transient OdontologoService service;
+    private transient EspecialidadService especialidades;
 
     @Override
     public void init() {
         service = new OdontologoService(new JdbcOdontologoDAO());
+        especialidades = new EspecialidadService(new JdbcEspecialidadDAO());
     }
 
     @Override
@@ -78,12 +82,15 @@ public final class OdontologoServlet extends HttpServlet {
                 MODULE_ODONTOLOGOS,
                 service.list(current, query)
             );
-            req.setAttribute(
-                "especialidades",
-                service.specialties()
-            );
-
+            if (service.canManage(current.role())) {
+                req.setAttribute("catalogoEspecialidades", especialidades.list(current));
+            }
             loadEditDentist(req, res, current);
+            if (service.canManage(current.role())) {
+                OdontologoDetalle selected = (OdontologoDetalle) req.getAttribute("editDentist");
+                req.setAttribute("especialidades", service.specialties(current,
+                    selected == null ? null : selected.idOdontologo()));
+            }
             loadFlashMessages(req);
             if (service.canManage(current.role())) AccountCreationView.prepare(req, MODULE_ODONTOLOGOS);
 
@@ -180,7 +187,9 @@ public final class OdontologoServlet extends HttpServlet {
             flash(
                 req,
                 ATTR_ERROR,
-                sqlErrorMessage(ex)
+                value(req, "accion").endsWith("-especialidad")
+                    ? "No se pudo guardar la especialidad. Intenta nuevamente."
+                    : sqlErrorMessage(ex)
             );
 
         } finally {
@@ -189,7 +198,10 @@ public final class OdontologoServlet extends HttpServlet {
         }
 
         if (!res.isCommitted()) {
-            redirect(req, res, PATH_ODONTOLOGOS);
+            String action = value(req, "accion");
+            boolean catalogAction = "crear-especialidad".equals(action)
+                || "editar-especialidad".equals(action) || "estado-especialidad".equals(action);
+            redirect(req, res, catalogAction ? PATH_ODONTOLOGOS + "?especialidades=1" : PATH_ODONTOLOGOS);
         }
     }
 
@@ -226,6 +238,9 @@ public final class OdontologoServlet extends HttpServlet {
 
         switch (action) {
 
+            case "crear-especialidad", "editar-especialidad", "estado-especialidad" ->
+                processSpecialty(req, current, action);
+
             case "crear" -> createDentist(
                 req,
                 res,
@@ -248,6 +263,46 @@ public final class OdontologoServlet extends HttpServlet {
                 "Acción no válida."
             );
         }
+    }
+
+    private void processSpecialty(HttpServletRequest req, User current, String action) throws SQLException {
+        long id;
+        String auditAction;
+        String message;
+        switch (action) {
+            case "crear-especialidad" -> {
+                id = especialidades.create(current, value(req, "nombre_especialidad"));
+                auditAction = "CREATE";
+                message = "Especialidad registrada correctamente.";
+            }
+            case "editar-especialidad" -> {
+                id = parseSpecialtyId(value(req, "id_especialidad"));
+                especialidades.rename(current, id, value(req, "nombre_especialidad"));
+                auditAction = "UPDATE";
+                message = "Especialidad actualizada correctamente.";
+            }
+            case "estado-especialidad" -> {
+                id = parseSpecialtyId(value(req, "id_especialidad"));
+                String estado = value(req, "estado_especialidad");
+                if (!"ACTIVA".equals(estado) && !"INACTIVA".equals(estado)) {
+                    throw new IllegalArgumentException("Estado de especialidad no válido.");
+                }
+                especialidades.setActive(current, id, "ACTIVA".equals(estado));
+                auditAction = "STATUS_CHANGE";
+                message = "Disponibilidad de la especialidad actualizada.";
+            }
+            default -> throw new IllegalArgumentException("Acción de especialidad no válida.");
+        }
+        AuditLog.businessChange(current, auditAction, "ESPECIALIDAD", id);
+        flash(req, ATTR_SUCCESS, message);
+    }
+
+    private static long parseSpecialtyId(String raw) {
+        try {
+            long id = Long.parseLong(raw);
+            if (id > 0) return id;
+        } catch (NumberFormatException ignored) { }
+        throw new IllegalArgumentException("Identificador de especialidad no válido.");
     }
 
     private void createDentist(

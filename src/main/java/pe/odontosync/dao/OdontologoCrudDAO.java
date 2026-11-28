@@ -11,7 +11,8 @@ import pe.odontosync.model.OdontologoDetalle;
 public interface OdontologoCrudDAO {
     List<OdontologoDetalle> searchByClinic(long clinicId, String query) throws SQLException;
     Optional<OdontologoDetalle> findDetailedById(long clinicId, long dentistId) throws SQLException;
-    List<EspecialidadOpcion> findActiveSpecialties() throws SQLException;
+    /** Activas visibles en la clínica y, al editar, inactivas ya asignadas al profesional de esa clínica. */
+    List<EspecialidadOpcion> findAvailableSpecialties(long clinicId, Long dentistId) throws SQLException;
     boolean emailExists(long clinicId, String email, Long excludeUserId) throws SQLException;
     boolean emailExistsGlobally(String email) throws SQLException;
     boolean licenseExists(long clinicId, String license, Long excludeDentistId) throws SQLException;

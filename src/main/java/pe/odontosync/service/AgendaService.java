@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import pe.odontosync.Role;
 import pe.odontosync.User;
 import pe.odontosync.dao.AgendaCrudDAO;
@@ -62,7 +63,7 @@ public final class AgendaService {
     }
 
     public List<EspecialidadOpcion> specialties(User current) throws SQLException {
-        return canSchedule(current.role()) ? dao.findActiveSpecialties() : List.of();
+        return canSchedule(current.role()) ? dao.findActiveSpecialties(current.clinicId()) : List.of();
     }
 
     public Map<Long, List<Long>> dentistSpecialtyIds(User current) throws SQLException {
@@ -99,7 +100,7 @@ public final class AgendaService {
             throw new IllegalArgumentException("Solo se pueden reprogramar citas pendientes o confirmadas.");
         }
         AppointmentData data = validateScheduleData(
-            current, patientId, dentistId, specialtyValue, dateValue, startValue, endValue, reason, notes, appointmentId
+            current, patientId, dentistId, specialtyValue, dateValue, startValue, endValue, reason, notes, existing
         );
         dao.update(
             current.clinicId(), appointmentId, patientId, dentistId, data.specialtyId(), data.scheduleId(),
@@ -121,8 +122,9 @@ public final class AgendaService {
     private AppointmentData validateScheduleData(
         User current, long patientId, long dentistId, String specialtyValue,
         String dateValue, String startValue, String endValue, String reason, String notes,
-        Long excludeAppointmentId
+        CitaDetalle existing
     ) throws SQLException {
+        Long excludeAppointmentId = existing == null ? null : existing.idCita();
         if (patientId <= 0 || !dao.patientIsActive(current.clinicId(), patientId)) {
             throw new IllegalArgumentException("Selecciona un paciente activo de tu clínica.");
         }
@@ -144,8 +146,12 @@ public final class AgendaService {
         }
 
         Long specialtyId = parseOptionalId(specialtyValue, "especialidad");
-        if (specialtyId != null && !dao.specialtyAssignedToDentist(dentistId, specialtyId)) {
-            throw new IllegalArgumentException("La especialidad seleccionada no está asignada al odontólogo.");
+        // Una cita existente puede conservar su especialidad aunque ya no esté disponible.
+        boolean retaining = existing != null && existing.idPaciente() == patientId
+            && existing.idOdontologo() == dentistId && Objects.equals(existing.idEspecialidad(), specialtyId);
+        if (specialtyId != null && !retaining
+            && !dao.specialtyAssignedToDentist(current.clinicId(), dentistId, specialtyId)) {
+            throw new IllegalArgumentException("La especialidad seleccionada no está disponible para el odontólogo de tu clínica.");
         }
 
         Long scheduleId = dao.findCoveringSchedule(

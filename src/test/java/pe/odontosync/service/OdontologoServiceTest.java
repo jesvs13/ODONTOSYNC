@@ -116,6 +116,60 @@ class OdontologoServiceTest {
         assertEquals(0, dao.createAttempts);
     }
 
+    @Test
+    void altaConsultaSoloEspecialidadesActivasDeLaClinicaActual() throws Exception {
+        FakeDao dao = new FakeDao();
+        OdontologoService service = new OdontologoService(dao);
+        User other = new User(2, 2, "Admin 2", "Otra clínica", Role.ADMINISTRADOR);
+        assertEquals(List.of(1L, 2L), service.specialties(admin(), null).stream().map(EspecialidadOpcion::id).toList());
+        assertEquals(List.of(1L, 3L), service.specialties(other, null).stream().map(EspecialidadOpcion::id).toList());
+        assertEquals(2L, dao.catalogClinic);
+        assertNull(dao.catalogDentist);
+    }
+
+    @Test
+    void altaRechazaEspecialidadPropiaDeOtraClinica() {
+        FakeDao dao = new FakeDao();
+        assertThrows(IllegalArgumentException.class, () -> new OdontologoService(dao).create(
+            admin(), "Carlos", "Ramirez", "Vega", "999111222", "01234567",
+            "COP-2", "2026-01-10", "ACTIVO", List.of(3L)));
+        assertEquals(0, dao.createAttempts);
+    }
+
+    @Test
+    void edicionConservaEspecialidadInactivaYaAsignada() throws Exception {
+        FakeDao dao = new FakeDao();
+        dao.dentists.add(sample());
+        dao.inactive = Set.of(1L);
+        OdontologoService service = new OdontologoService(dao);
+        assertEquals("INACTIVA", service.specialties(admin(), 10L).stream().filter(sp -> sp.id() == 1).findFirst().orElseThrow().estado());
+        service.update(admin(), 10, "Carlos", "Ramirez", "carlos@x.pe", "999111222", null,
+            "COP-1", "2026-01-10", "ACTIVO", List.of(1L));
+        assertEquals(List.of(1L), dao.updatedSpecialties);
+        assertEquals(Long.valueOf(10), dao.catalogDentist);
+    }
+
+    @Test
+    void edicionRechazaNuevaAsignacionInactiva() {
+        FakeDao dao = new FakeDao();
+        dao.dentists.add(sample());
+        dao.inactive = Set.of(2L);
+        assertThrows(IllegalArgumentException.class, () -> new OdontologoService(dao).update(
+            admin(), 10, "Carlos", "Ramirez", "carlos@x.pe", "999111222", null,
+            "COP-1", "2026-01-10", "ACTIVO", List.of(1L, 2L)));
+        assertNull(dao.updatedSpecialties);
+    }
+
+    @Test
+    void edicionPermiteRetirarAsignacionInactivaVoluntariamente() throws Exception {
+        FakeDao dao = new FakeDao();
+        dao.dentists.add(sample());
+        dao.inactive = Set.of(1L);
+        new OdontologoService(dao).update(admin(), 10, "Carlos", "Ramirez", "carlos@x.pe",
+            "999111222", null, "COP-1", "2026-01-10", "ACTIVO", List.of(2L));
+        assertEquals(List.of(2L), dao.updatedSpecialties);
+    }
+
     private static User admin() { return new User(1, 1, "Admin", "Clínica", Role.ADMINISTRADOR); }
     private static User reception() { return new User(3, 1, "Recepción", "Clínica", Role.RECEPCIONISTA); }
 
@@ -132,14 +186,25 @@ class OdontologoServiceTest {
         int createAttempts;
         boolean race;
         final Set<String> occupied = new HashSet<>();
-        List<Long> createdSpecialties;
+        List<Long> createdSpecialties, updatedSpecialties;
+        long catalogClinic;
+        Long catalogDentist;
+        Set<Long> inactive = Set.of();
 
         public List<OdontologoDetalle> searchByClinic(long c, String q) { return dentists; }
         public Optional<OdontologoDetalle> findDetailedById(long c, long id) {
             return dentists.stream().filter(d -> d.idOdontologo() == id).findFirst();
         }
-        public List<EspecialidadOpcion> findActiveSpecialties() {
-            return List.of(new EspecialidadOpcion(1,"Odontología General","ACTIVA"), new EspecialidadOpcion(2,"Ortodoncia","ACTIVA"));
+        public List<EspecialidadOpcion> findAvailableSpecialties(long clinicId, Long dentistId) {
+            catalogClinic = clinicId;
+            catalogDentist = dentistId;
+            List<Long> assigned = dentistId == null || clinicId != 1 ? List.of()
+                : dentists.stream().filter(d -> d.idOdontologo() == dentistId).findFirst()
+                    .map(OdontologoDetalle::especialidadIds).orElse(List.of());
+            List<EspecialidadOpcion> catalog = List.of(new EspecialidadOpcion(1,"Odontología General","ACTIVA"),
+                new EspecialidadOpcion(clinicId == 1 ? 2 : 3, "Especialidad propia", "ACTIVA"));
+            return catalog.stream().filter(sp -> !inactive.contains(sp.id()) || assigned.contains(sp.id()))
+                .map(sp -> inactive.contains(sp.id()) ? new EspecialidadOpcion(sp.id(), sp.nombre(), "INACTIVA") : sp).toList();
         }
         public boolean emailExists(long c,String e,Long x) { return false; }
         // El contrato global se incorporará al DAO en GREEN.
@@ -150,7 +215,7 @@ class OdontologoServiceTest {
             if (race) { race = false; occupied.add(e); throw new SQLException("duplicate email", "23000", 1062); }
             createdDni=dni; createdClinic=c; createdSurnames=a; createdNames=n; createdEmail=e; createdLicense=co; createdHash=h; createdSpecialties=sp; return 50;
         }
-        public void update(long c,long id,String n,String a,String e,String t,String h,String co,LocalDate f,String st,List<Long> sp) { updatedEmail=e; updatedHash=h; }
+        public void update(long c,long id,String n,String a,String e,String t,String h,String co,LocalDate f,String st,List<Long> sp) { updatedEmail=e; updatedHash=h; updatedSpecialties=sp; }
         public void updateStatus(long c,long id,String st) { newStatus=st; }
     }
 }

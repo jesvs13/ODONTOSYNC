@@ -201,17 +201,11 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
     }
 
     @Override
-    public List<EspecialidadOpcion> findActiveSpecialties() throws SQLException {
-        String sql = "SELECT id_especialidad,nombre,estado FROM especialidades WHERE estado='ACTIVA' ORDER BY nombre";
-        List<EspecialidadOpcion> result = new ArrayList<>();
-        try (Connection cn = DatabaseConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) result.add(new EspecialidadOpcion(
-                rs.getLong("id_especialidad"), rs.getString("nombre"), rs.getString("estado")
-            ));
-        }
-        return result;
+    public List<EspecialidadOpcion> findActiveSpecialties(long clinicId) throws SQLException {
+        return new JdbcEspecialidadDAO().listByClinic(clinicId).stream()
+            .filter(sp -> sp.active())
+            .map(sp -> new EspecialidadOpcion(sp.id(), sp.nombre(), "ACTIVA"))
+            .toList();
     }
 
     @Override
@@ -221,9 +215,13 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
             FROM odontologos o
             JOIN odontologo_especialidad oe ON oe.id_odontologo=o.id_odontologo
             JOIN especialidades e ON e.id_especialidad=oe.id_especialidad
-            WHERE o.id_clinica=? AND o.estado='ACTIVO' AND e.estado='ACTIVA'
+            %s
+            WHERE o.id_clinica=? AND o.estado='ACTIVO'
+              AND %s
+              AND %s
             ORDER BY o.id_odontologo, e.nombre
-            """;
+            """.formatted(EspecialidadCatalogoSql.availabilityJoin("o.id_clinica"),
+                EspecialidadCatalogoSql.visibleTo("o.id_clinica"), EspecialidadCatalogoSql.ACTIVE);
         Map<Long, List<Long>> result = new LinkedHashMap<>();
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
@@ -272,17 +270,50 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
     }
 
     @Override
-    public boolean specialtyAssignedToDentist(long dentistId, long specialtyId) throws SQLException {
+    public boolean specialtyAssignedToDentist(long clinicId, long dentistId, long specialtyId) throws SQLException {
+        try (Connection cn = DatabaseConnection.getConnection()) {
+            return specialtyAssignedToDentist(cn, clinicId, dentistId, specialtyId);
+        }
+    }
+
+    private boolean specialtyAssignedToDentist(Connection cn, long clinicId, long dentistId, long specialtyId)
+        throws SQLException {
         String sql = """
             SELECT 1
             FROM odontologo_especialidad oe
+            JOIN odontologos o ON o.id_odontologo=oe.id_odontologo
             JOIN especialidades e ON e.id_especialidad=oe.id_especialidad
-            WHERE oe.id_odontologo=? AND oe.id_especialidad=? AND e.estado='ACTIVA'
+            %s
+            WHERE o.id_clinica=? AND o.estado='ACTIVO' AND oe.id_odontologo=? AND oe.id_especialidad=?
+              AND %s
+              AND %s
             LIMIT 1
-            """;
-        try (Connection cn = DatabaseConnection.getConnection(); PreparedStatement ps = cn.prepareStatement(sql)) {
-            ps.setLong(1, dentistId); ps.setLong(2, specialtyId);
+            """.formatted(EspecialidadCatalogoSql.availabilityJoin("o.id_clinica"),
+                EspecialidadCatalogoSql.visibleTo("o.id_clinica"), EspecialidadCatalogoSql.ACTIVE);
+        try (PreparedStatement ps = cn.prepareStatement(sql)) {
+            ps.setLong(1, clinicId); ps.setLong(2, dentistId); ps.setLong(3, specialtyId);
             try (ResultSet rs = ps.executeQuery()) { return rs.next(); }
+        }
+    }
+
+    private void validateSpecialtyForWrite(Connection cn, long clinicId, Long appointmentId,
+        long patientId, long dentistId, Long specialtyId) throws SQLException {
+        if (specialtyId == null) return;
+        if (appointmentId != null) {
+            // La excepción solo corresponde a la relación ya guardada en esta misma cita.
+            String sql = """
+                SELECT 1 FROM citas c JOIN especialidades e ON e.id_especialidad=c.id_especialidad
+                WHERE c.id_clinica=? AND c.id_cita=? AND c.id_paciente=? AND c.id_odontologo=?
+                  AND c.id_especialidad=? AND %s
+                """.formatted(EspecialidadCatalogoSql.visibleTo("c.id_clinica"));
+            try (PreparedStatement ps = cn.prepareStatement(sql)) {
+                ps.setLong(1, clinicId); ps.setLong(2, appointmentId); ps.setLong(3, patientId);
+                ps.setLong(4, dentistId); ps.setLong(5, specialtyId);
+                try (ResultSet rs = ps.executeQuery()) { if (rs.next()) return; }
+            }
+        }
+        if (!specialtyAssignedToDentist(cn, clinicId, dentistId, specialtyId)) {
+            throw new IllegalArgumentException("La especialidad seleccionada ya no está disponible para el odontólogo de tu clínica.");
         }
     }
 
@@ -356,6 +387,8 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
             """;
         try (Connection cn = DatabaseConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            JdbcEspecialidadDAO.lockCatalog(cn, clinicId);
+            validateSpecialtyForWrite(cn, clinicId, null, patientId, dentistId, specialtyId);
             int i=1;
             ps.setLong(i++, clinicId); ps.setLong(i++, patientId); ps.setLong(i++, dentistId);
             setNullableLong(ps, i++, specialtyId); setNullableLong(ps, i++, scheduleId);
@@ -382,6 +415,8 @@ public final class JdbcAgendaDAO implements AgendaCrudDAO {
             WHERE id_clinica=? AND id_cita=?
             """;
         try (Connection cn = DatabaseConnection.getConnection(); PreparedStatement ps = cn.prepareStatement(sql)) {
+            JdbcEspecialidadDAO.lockCatalog(cn, clinicId);
+            validateSpecialtyForWrite(cn, clinicId, appointmentId, patientId, dentistId, specialtyId);
             int i=1;
             ps.setLong(i++, patientId); ps.setLong(i++, dentistId);
             setNullableLong(ps, i++, specialtyId); setNullableLong(ps, i++, scheduleId);
